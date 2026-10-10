@@ -25,6 +25,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { fmt, fmtTime, timeAgo } from '../../api/adapters';
 
 export const LiveFleet: React.FC = () => {
   const navigate = useNavigate();
@@ -163,7 +164,8 @@ export const LiveFleet: React.FC = () => {
                   {/* Destination / ETA */}
                   <div className="text-[11px] text-gray-300 flex items-center gap-1 truncate">
                     <MapPin className="w-3 h-3 text-brand-teal shrink-0" />
-                    <span className="truncate">{agent.destinationName || 'En route / Patrol'}</span>
+                    <span className="truncate">{agent.destinationName || 'No open assignment'}</span>
+                    <span className="text-[10px] font-mono text-gray-500 shrink-0 ml-auto">{timeAgo(agent.lastHeartbeat)}</span>
                     {agent.etaMinutes ? (
                       <span className="text-[10px] font-mono text-emerald-400 shrink-0 ml-auto">
                         ETA {agent.etaMinutes}m
@@ -183,7 +185,7 @@ export const LiveFleet: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-1">
                       <Battery className="w-3 h-3 text-amber-400" />
-                      <span>{agent.batteryLevel}%</span>
+                      <span>{fmt(agent.batteryLevel, '%')}</span>
                     </div>
                     <button
                       onClick={(e) => {
@@ -227,7 +229,8 @@ export const LiveFleet: React.FC = () => {
               variant="secondary"
               size="sm"
               leftIcon={<Phone className="w-3.5 h-3.5" />}
-              onClick={() => window.open(`tel:${activeAgent?.phone}`)}
+              disabled={!activeAgent?.phone}
+              onClick={() => activeAgent?.phone && window.open(`tel:${activeAgent.phone}`)}
             >
               Direct Call
             </Button>
@@ -237,7 +240,7 @@ export const LiveFleet: React.FC = () => {
               leftIcon={<ExternalLink className="w-3.5 h-3.5" />}
               onClick={() => {
                 setInspectorOpen(false);
-                navigate('/dashboard/replay');
+                navigate(`/dashboard/replay?agent=${activeAgent?.id ?? ''}`);
               }}
             >
               Route Replay
@@ -256,7 +259,7 @@ export const LiveFleet: React.FC = () => {
               />
               <div className="space-y-1">
                 <div className="text-base font-bold text-white">{activeAgent.name}</div>
-                <div className="text-gray-400 font-mono text-[11px]">{activeAgent.phone}</div>
+                <div className="text-gray-400 font-mono text-[11px]">{activeAgent.phone ?? activeAgent.email ?? '—'}</div>
                 <div className="flex items-center gap-2 pt-1">
                   <Badge variant={activeAgent.status as any} size="sm">
                     {activeAgent.status}
@@ -309,25 +312,25 @@ export const LiveFleet: React.FC = () => {
                 <div className="p-3 bg-ops-card border border-ops-border rounded-xl">
                   <span className="text-[10px] text-gray-400 font-mono">GPS Accuracy</span>
                   <div className="text-lg font-bold font-mono text-emerald-400 mt-0.5">
-                    ±{activeAgent.telemetry.accuracyMeters} meters
+                    ±{fmt(activeAgent.telemetry.accuracyMeters, ' meters')}
                   </div>
                 </div>
                 <div className="p-3 bg-ops-card border border-ops-border rounded-xl">
-                  <span className="text-[10px] text-gray-400 font-mono">Altitude</span>
-                  <div className="text-lg font-bold font-mono text-white mt-0.5">
-                    {activeAgent.telemetry.altitudeMeters} m ASL
+                  <span className="text-[10px] text-gray-400 font-mono">Shift / Connectivity</span>
+                  <div className="text-lg font-bold font-mono text-white mt-0.5 capitalize">
+                    {activeAgent.shiftStatus.replace('_', ' ')} · {activeAgent.connectivity}
                   </div>
                 </div>
                 <div className="p-3 bg-ops-card border border-ops-border rounded-xl">
                   <span className="text-[10px] text-gray-400 font-mono">Battery Level</span>
                   <div className="text-lg font-bold font-mono text-amber-400 mt-0.5">
-                    {activeAgent.batteryLevel}%
+                    {fmt(activeAgent.batteryLevel, '%')}
                   </div>
                 </div>
                 <div className="p-3 bg-ops-card border border-ops-border rounded-xl">
-                  <span className="text-[10px] text-gray-400 font-mono">Signal Strength</span>
+                  <span className="text-[10px] text-gray-400 font-mono">Last GPS Fix</span>
                   <div className="text-lg font-bold font-mono text-cyan-400 mt-0.5">
-                    {activeAgent.signalStrength} dBm
+                    {timeAgo(activeAgent.lastHeartbeat)}
                   </div>
                 </div>
               </div>
@@ -337,15 +340,20 @@ export const LiveFleet: React.FC = () => {
             <div className="p-3.5 bg-ops-base border border-ops-border rounded-xl font-mono text-[11px] space-y-1 text-gray-400">
               <div className="flex justify-between">
                 <span>LAT / LNG:</span>
-                <span className="text-gray-200">{activeAgent.currentLat}, {activeAgent.currentLng}</span>
+                <span className="text-gray-200">
+                  {activeAgent.hasPosition ? `${activeAgent.currentLat.toFixed(5)}, ${activeAgent.currentLng.toFixed(5)}` : 'no fix yet'}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span>ODOMETER:</span>
-                <span className="text-gray-200">{activeAgent.telemetry.odometerKm} km</span>
+                <span>MOTION / FLAGS:</span>
+                <span className="text-gray-200">
+                  {activeAgent.motion ?? '—'}
+                  {activeAgent.flags.length > 0 ? ` · ${activeAgent.flags.join(', ')}` : ''}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>HEARTBEAT:</span>
-                <span className="text-brand-teal">{new Date(activeAgent.lastHeartbeat).toLocaleTimeString()}</span>
+                <span className="text-brand-teal">{fmtTime(activeAgent.lastHeartbeat)}</span>
               </div>
             </div>
           </div>

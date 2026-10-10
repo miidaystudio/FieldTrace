@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PhaseNotice } from '../../components/common/PhaseNotice';
 import { useFleetStore } from '../../store/useFleetStore';
 import { AnomalyEvent, AnomalySeverity } from '../../api/types';
 import { Card } from '../../components/common/Card';
@@ -65,6 +66,9 @@ export const AnomalyCenter: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+      <PhaseNotice phase={4} feature="GPS anomaly detection">
+        Explainable rules (impossible speed, GPS jumps, mock-location signals) are built in Phase 4. Mock-location flags reported by devices already mark agents as "flagged" on the live map.
+      </PhaseNotice>
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

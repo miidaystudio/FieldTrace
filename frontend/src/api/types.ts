@@ -1,17 +1,23 @@
+import type { Connectivity, Motion, ShiftStatus, TelemetryFlag, VehicleType } from './backend';
+
+/**
+ * Display status of an agent, derived from backend `connectivity` + `motion` + flags
+ * (see adapters.ts → deriveStatus).
+ */
 export type AgentStatus = 'moving' | 'idle' | 'stopped' | 'stale' | 'flagged' | 'offline';
 
-export type AgentType = 'van' | 'truck' | 'bike' | 'technician' | 'inspector';
+export type AgentType = VehicleType;
 
+/** Latest telemetry of an agent. `null` = not reported by the device / backend. */
 export interface Telemetry {
-  accuracyMeters: number;
-  altitudeMeters: number;
+  accuracyMeters: number | null;
+  altitudeMeters: number | null;
   speedKmH: number;
   heading: number; // 0-360 degrees
-  batteryPercent: number;
-  signalStrengthDbm: number; // -120 to -50
-  timestamp: string;
-  odometerKm: number;
-  engineTempC?: number;
+  batteryPercent: number | null;
+  signalStrengthDbm: number | null;
+  timestamp: string | null;
+  odometerKm: number | null;
 }
 
 export interface Agent {
@@ -22,17 +28,25 @@ export interface Agent {
   role: string;
   type: AgentType;
   status: AgentStatus;
+  /** False until the agent has reported a GPS fix; such agents are not drawn on maps. */
+  hasPosition: boolean;
   currentLat: number;
   currentLng: number;
   bearing: number;
   speedKmH: number;
-  batteryLevel: number;
-  signalStrength: number;
+  batteryLevel: number | null;
+  signalStrength: number | null;
+  teamId: string | null;
+  email: string | null;
+  shiftStatus: ShiftStatus;
+  connectivity: Connectivity;
+  motion: Motion | null;
+  flags: TelemetryFlag[];
   assignedRouteId?: string;
   currentVisitId?: string;
   currentGeofenceId?: string;
-  lastHeartbeat: string;
-  phone: string;
+  lastHeartbeat: string | null;
+  phone: string | null;
   destinationName?: string;
   etaMinutes?: number;
   telemetry: Telemetry;
@@ -169,16 +183,22 @@ export interface AnomalyEvent {
   actionTaken?: string;
 }
 
+/** Dashboard KPIs computed from live data. `null` = not available until a later backend phase. */
 export interface KPIOverview {
   totalAgents: number;
+  onShiftCount: number;
   movingCount: number;
   idleCount: number;
   flaggedCount: number;
   offlineCount: number;
-  verifiedVisitsToday: number;
-  pendingVisitsToday: number;
+  /** Visit verification arrives in Phase 3. */
+  verifiedVisitsToday: number | null;
+  pendingVisitsToday: number | null;
+  assignmentsToday: number;
+  completedAssignmentsToday: number;
   openAnomalies: number;
-  complianceScore: number;
-  avgSpeedKmH: number;
-  totalDistanceKmToday: number;
+  /** Compliance scoring arrives with visits/anomalies (Phase 3–4). */
+  complianceScore: number | null;
+  avgSpeedKmH: number | null;
+  totalDistanceKmToday: number | null;
 }

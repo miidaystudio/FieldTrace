@@ -1,107 +1,113 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { DataTable, Column } from '../../components/common/DataTable';
 import { Badge } from '../../components/common/Badge';
-import { FileClock, ShieldCheck, UserCheck, AlertTriangle } from 'lucide-react';
+import { Button } from '../../components/common/Button';
+import { FileClock, Loader2 } from 'lucide-react';
+import { auditApi, type AuditLogDto } from '../../api/backend';
+import { errorMessage } from '../../api/client';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useFleetStore } from '../../store/useFleetStore';
+import { FormError } from '../auth/LoginPage';
 
-interface AuditEntry {
-  id: string;
-  timestamp: string;
-  actor: string;
-  actorRole: string;
-  action: string;
-  target: string;
-  ipAddress: string;
-  status: 'success' | 'flagged' | 'override';
+const PAGE_SIZE = 50;
+
+const show = (value: unknown): string => {
+  if (value === null || value === undefined) return '∅';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+};
+
+function describeChanges(entry: AuditLogDto): string {
+  if (entry.changes) {
+    return Object.entries(entry.changes)
+      .map(([field, change]) => `${field}: ${show(change.from)} → ${show(change.to)}`)
+      .join('; ');
+  }
+  if (entry.metadata) {
+    return Object.entries(entry.metadata)
+      .map(([key, value]) => `${key}: ${show(value)}`)
+      .join('; ');
+  }
+  return '';
 }
 
-const mockAuditEntries: AuditEntry[] = [
-  {
-    id: 'log-801',
-    timestamp: '2026-10-09 14:10:22',
-    actor: 'Cmdr. Sarah Jenkins',
-    actorRole: 'Ops Manager',
-    action: 'Manual Geofence Verification Override Approved',
-    target: 'Visit POV-105 (Embarcadero Pier 39)',
-    ipAddress: '192.168.1.104 (HQ Internal)',
-    status: 'override',
-  },
-  {
-    id: 'log-802',
-    timestamp: '2026-10-09 13:48:15',
-    actor: 'Automated AI Engine',
-    actorRole: 'Kinematic Security',
-    action: 'In-Cab Speed Violation Chime Dispatched',
-    target: 'Agent Lucas King (FT-112)',
-    ipAddress: 'System Daemon',
-    status: 'flagged',
-  },
-  {
-    id: 'log-803',
-    timestamp: '2026-10-09 12:04:19',
-    actor: 'Marcus Vance',
-    actorRole: 'Field Agent',
-    action: 'Cryptographic Check-In Submitted with Photo Hash',
-    target: 'Site Salesforce Tower Bay 4',
-    ipAddress: '172.56.21.89 (Cellular)',
-    status: 'success',
-  },
-  {
-    id: 'log-804',
-    timestamp: '2026-10-09 10:15:00',
-    actor: 'Alex Thorne',
-    actorRole: 'Field Supervisor',
-    action: 'New Polygon Geofence Deployed',
-    target: 'SFO Air Cargo Terminal B',
-    ipAddress: '192.168.1.112',
-    status: 'success',
-  },
-];
-
 export const AuditLogs: React.FC = () => {
-  const columns: Column<AuditEntry>[] = [
+  const me = useAuthStore((state) => state.user);
+  const directory = useFleetStore((state) => state.directory);
+  const [entries, setEntries] = useState<AuditLogDto[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (nextPage: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, meta } = await auditApi.list(nextPage, PAGE_SIZE);
+      setEntries((prev) => (nextPage === 1 ? data : [...prev, ...data]));
+      setTotal(meta.total);
+      setPage(nextPage);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load(1);
+  }, [load]);
+
+  const actorName = (entry: AuditLogDto) => {
+    if (!entry.actorId) return 'System';
+    if (entry.actorId === me?.id) return `${me.name} (you)`;
+    return directory.find((agent) => agent.userId === entry.actorId)?.name ?? `User …${entry.actorId.slice(-6)}`;
+  };
+
+  const columns: Column<AuditLogDto>[] = [
     {
-      key: 'timestamp',
+      key: 'at',
       header: 'Timestamp',
       sortable: true,
-      render: (item) => <span className="font-mono text-xs text-gray-400">{item.timestamp}</span>,
+      render: (item) => <span className="font-mono text-xs text-gray-400">{new Date(item.at).toLocaleString()}</span>,
     },
     {
-      key: 'actor',
-      header: 'Operator / System Actor',
-      sortable: true,
+      key: 'actorId',
+      header: 'Actor',
       render: (item) => (
         <div>
-          <div className="font-bold text-white text-xs">{item.actor}</div>
-          <div className="text-[10px] text-brand-teal font-mono">{item.actorRole}</div>
+          <div className="font-bold text-white text-xs">{actorName(item)}</div>
+          <div className="text-[10px] text-brand-teal font-mono capitalize">{item.actorRole ?? 'system'}</div>
         </div>
       ),
     },
     {
       key: 'action',
       header: 'Action Event',
+      sortable: true,
       render: (item) => (
         <div>
-          <div className="text-gray-200 text-xs font-semibold">{item.action}</div>
-          <div className="text-[10px] text-gray-400 truncate max-w-[280px]">Target: {item.target}</div>
+          <div className="text-gray-200 text-xs font-semibold font-mono">{item.action}</div>
+          <div className="text-[10px] text-gray-400 truncate max-w-[420px]" title={describeChanges(item)}>
+            {describeChanges(item) || `${item.entityType} …${item.entityId.slice(-6)}`}
+          </div>
         </div>
       ),
     },
     {
-      key: 'ipAddress',
-      header: 'Source Origin',
-      render: (item) => <span className="font-mono text-xs text-gray-400">{item.ipAddress}</span>,
-    },
-    {
-      key: 'status',
-      header: 'Audit Status',
+      key: 'entityType',
+      header: 'Entity',
       render: (item) => (
-        <Badge
-          variant={item.status === 'success' ? 'verified' : item.status === 'override' ? 'idle' : 'flagged'}
-          size="sm"
-        >
-          {item.status}
+        <Badge variant="slate" size="sm">
+          {item.entityType}
         </Badge>
       ),
+    },
+    {
+      key: 'requestId',
+      header: 'Request ID',
+      render: (item) => <span className="font-mono text-[10px] text-gray-500">{item.requestId?.slice(0, 8) ?? '—'}</span>,
     },
   ];
 
@@ -113,21 +119,34 @@ export const AuditLogs: React.FC = () => {
           <span>Immutable System Audit Logs</span>
         </h1>
         <p className="text-xs text-gray-400 mt-1">
-          Cryptographically recorded security logs, supervisor overrides, and geofence boundary modifications.
+          Every change to users, teams, agents, locations, assignments and settings, recorded by the backend
+          (newest first, {total} entries).
         </p>
       </div>
 
+      <FormError message={error} />
+
       <DataTable
-        data={mockAuditEntries}
+        data={entries}
         columns={columns}
         keyExtractor={(item) => item.id}
-        searchPlaceholder="Search audit log by actor, action, or target..."
+        pageSize={25}
+        emptyMessage={loading ? 'Loading…' : 'No audit entries yet.'}
+        searchPlaceholder="Filter loaded entries by action, entity or change..."
         searchFilter={(item, q) =>
-          item.actor.toLowerCase().includes(q) ||
           item.action.toLowerCase().includes(q) ||
-          item.target.toLowerCase().includes(q)
+          item.entityType.toLowerCase().includes(q) ||
+          describeChanges(item).toLowerCase().includes(q)
         }
       />
+
+      {entries.length < total && (
+        <div className="flex justify-center">
+          <Button variant="secondary" size="sm" disabled={loading} onClick={() => void load(page + 1)}>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : `Load older entries (${entries.length} of ${total})`}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,60 +1,83 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { DriverShell } from '../../components/layout/DriverShell';
-import { mockRouteReplay } from '../../api/mockFleetData';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
-import { Modal } from '../../components/common/Modal';
+import { PhaseNotice } from '../../components/common/PhaseNotice';
 import {
   Navigation,
   CheckCircle2,
-  Camera,
   MapPin,
   Clock,
-  ShieldCheck,
-  AlertOctagon,
-  Sparkles,
-  Signature,
-  FileCheck,
-  Wifi,
-  Battery,
-  Radio,
   Calendar,
-  Layers,
   History,
-  Info,
-  Check,
+  Radio,
+  Play,
+  Coffee,
+  LogOut,
+  AlertTriangle,
+  UploadCloud,
 } from 'lucide-react';
+import { agentsApi, assignmentsApi, type AgentDto, type AssignmentDto } from '../../api/backend';
+import { errorMessage } from '../../api/client';
+import { VEHICLE_LABELS, avatarFor, fmt, timeAgo, todayIn } from '../../api/adapters';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useDriverTracking } from '../../hooks/useDriverTracking';
+
+type DriverTab = 'my_day' | 'my_route' | 'history' | 'status';
+
+const windowLabel = (a: AssignmentDto) =>
+  a.window
+    ? `${new Date(a.window.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}–${new Date(
+        a.window.end,
+      ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : 'Any time today';
 
 export const DriverPortal: React.FC = () => {
-  const [activeDriverTab, setActiveDriverTab] = useState<'my_day' | 'my_route' | 'checkin' | 'history' | 'status'>('my_day');
-  const [isOnShift, setIsOnShift] = useState(true);
-  const [activeStopIndex, setActiveStopIndex] = useState(0);
-  const [isCheckinModalOpen, setIsCheckinModalOpen] = useState(false);
-  const [checkinSuccess, setCheckinSuccess] = useState(false);
-  const [photoCaptured, setPhotoCaptured] = useState(false);
-  const [driverNotes, setDriverNotes] = useState('');
-  const [completedStops, setCompletedStops] = useState<number[]>([]);
+  const organization = useAuthStore((state) => state.organization);
+  const logout = useAuthStore((state) => state.logout);
+  const tracking = useDriverTracking();
 
-  const stops = mockRouteReplay.stops;
-  const currentStop = stops[activeStopIndex] || stops[0];
+  const [activeDriverTab, setActiveDriverTab] = useState<DriverTab>('my_day');
+  const [profile, setProfile] = useState<AgentDto | null>(null);
+  const [assignments, setAssignments] = useState<AssignmentDto[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const today = todayIn(organization?.timezone ?? 'UTC');
 
-  const handleCapturePhoto = () => {
-    setPhotoCaptured(true);
+  const loadAssignments = useCallback(async () => {
+    try {
+      setAssignments(await assignmentsApi.mine(today));
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }, [today]);
+
+  useEffect(() => {
+    agentsApi.me().then(setProfile).catch((err) => setError(errorMessage(err)));
+    void loadAssignments();
+  }, [loadAssignments]);
+
+  const ordered = [...assignments].sort((a, b) =>
+    (a.window?.start ?? a.createdAt).localeCompare(b.window?.start ?? b.createdAt),
+  );
+  const open = ordered.filter((a) => a.status === 'in_progress' || a.status === 'pending' || a.status === 'overdue');
+  const current = open.find((a) => a.status === 'in_progress') ?? open[0];
+  const completed = ordered.filter((a) => a.status === 'completed');
+
+  const changeStatus = async (assignment: AssignmentDto, status: 'in_progress' | 'completed') => {
+    setError(null);
+    try {
+      await assignmentsApi.setStatus(assignment.id, status);
+      await loadAssignments();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
   };
 
-  const handleCompleteCheckin = () => {
-    setCheckinSuccess(true);
-    setCompletedStops((prev) => [...prev, activeStopIndex]);
-    setTimeout(() => {
-      setCheckinSuccess(false);
-      setIsCheckinModalOpen(false);
-      setPhotoCaptured(false);
-      setDriverNotes('');
-      if (activeStopIndex < stops.length - 1) {
-        setActiveStopIndex((prev) => prev + 1);
-      }
-    }, 1200);
-  };
+  const shiftLabel = !tracking.onShift
+    ? '○ OFF DUTY'
+    : tracking.session?.shiftStatus === 'on_break'
+      ? '◐ ON BREAK'
+      : '● ON SHIFT';
 
   return (
     <DriverShell>
@@ -63,103 +86,163 @@ export const DriverPortal: React.FC = () => {
         <div className="p-3.5 bg-ops-panel rounded-2xl border border-ops-border flex items-center justify-between shadow-md">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-full border-2 border-brand-teal overflow-hidden bg-ops-card shrink-0">
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80"
-                alt="Driver Avatar"
-                className="w-full h-full object-cover"
-              />
+              <img src={avatarFor(profile?.name ?? '?')} alt="" className="w-full h-full object-cover" />
             </div>
             <div>
-              <h2 className="text-xs font-bold text-white leading-tight">Marcus Vance</h2>
-              <p className="text-[10px] text-gray-400 font-mono">Van FT-101 • Courier Unit 4</p>
+              <h2 className="text-xs font-bold text-white leading-tight">{profile?.name ?? '…'}</h2>
+              <p className="text-[10px] text-gray-400 font-mono">
+                {profile
+                  ? [profile.employeeCode, VEHICLE_LABELS[profile.vehicle.type], profile.vehicle.plate].filter(Boolean).join(' • ')
+                  : ''}
+              </p>
             </div>
           </div>
-
-          <button
-            onClick={() => setIsOnShift(!isOnShift)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border font-mono ${
-              isOnShift
-                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+          <span
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border font-mono ${
+              tracking.onShift
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                 : 'bg-ops-card text-gray-400 border-ops-border'
             }`}
           >
-            {isOnShift ? '● ON SHIFT' : '○ OFF DUTY'}
-          </button>
+            {shiftLabel}
+          </span>
         </div>
+
+        {(error || tracking.error || tracking.gpsError) && (
+          <div className="p-3 bg-rose-950/50 border border-rose-500/50 rounded-xl text-rose-200 text-xs flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+            <span>{error ?? tracking.error ?? `GPS: ${tracking.gpsError}`}</span>
+          </div>
+        )}
+
+        {/* Shift controls */}
+        {tracking.loading ? (
+          <div className="text-xs text-gray-400">Checking shift…</div>
+        ) : !tracking.onShift ? (
+          <Button
+            variant="primary"
+            size="md"
+            className="w-full font-bold"
+            disabled={tracking.busy}
+            leftIcon={<Play className="w-4 h-4" />}
+            onClick={() => void tracking.startShift()}
+          >
+            Start Shift & Share Location
+          </Button>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={tracking.busy}
+              leftIcon={<Coffee className="w-4 h-4" />}
+              onClick={() => void tracking.setBreak(tracking.session?.shiftStatus !== 'on_break')}
+            >
+              {tracking.session?.shiftStatus === 'on_break' ? 'End Break' : 'Take Break'}
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              disabled={tracking.busy}
+              onClick={() => {
+                if (window.confirm('End your shift? Location sharing will stop.')) void tracking.endShift();
+              }}
+            >
+              End Shift
+            </Button>
+          </div>
+        )}
 
         {/* Tab Content */}
         {activeDriverTab === 'my_day' && (
           <div className="space-y-4 animate-in fade-in">
-            {/* Shift Progress Summary Card */}
-            <div className="p-4 bg-gradient-to-br from-ops-panel via-ops-panel to-teal-950/30 rounded-2xl border border-brand-teal/40 space-y-3 shadow-xl">
-              <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-brand-teal font-bold flex items-center gap-1.5">
-                  <Navigation className="w-3.5 h-3.5 animate-pulse" />
-                  NEXT TARGET: STOP #{activeStopIndex + 1}
-                </span>
-                <span className="text-emerald-400 font-bold">
-                  {completedStops.length} / {stops.length} DONE
-                </span>
+            {current ? (
+              <div className="p-4 bg-gradient-to-br from-ops-panel via-ops-panel to-teal-950/30 rounded-2xl border border-brand-teal/40 space-y-3 shadow-xl">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-brand-teal font-bold flex items-center gap-1.5">
+                    <Navigation className="w-3.5 h-3.5 animate-pulse" />
+                    {current.status === 'in_progress' ? 'IN PROGRESS' : 'NEXT STOP'}
+                  </span>
+                  <span className="text-emerald-400 font-bold">
+                    {completed.length} / {ordered.length} DONE
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">{current.location?.name ?? 'Site'}</h3>
+                  {current.title && <p className="text-xs text-gray-300 mt-0.5">{current.title}</p>}
+                  <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
+                    <MapPin className="w-3.5 h-3.5 text-brand-teal shrink-0" />
+                    <span>{current.location?.address ?? '—'}</span>
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-ops-border/60 flex items-center justify-between text-xs font-mono text-gray-400">
+                  <span>Window: {windowLabel(current)}</span>
+                  <span className="text-brand-teal capitalize">{current.priority}</span>
+                </div>
+                {current.status === 'in_progress' ? (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    className="w-full font-bold"
+                    leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                    onClick={() => void changeStatus(current, 'completed')}
+                  >
+                    Mark Completed
+                  </Button>
+                ) : (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    className="w-full font-bold"
+                    leftIcon={<Navigation className="w-4 h-4" />}
+                    onClick={() => void changeStatus(current, 'in_progress')}
+                  >
+                    Start This Stop
+                  </Button>
+                )}
               </div>
-
-              <div>
-                <h3 className="text-base font-bold text-white">{currentStop.siteName}</h3>
-                <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
-                  <MapPin className="w-3.5 h-3.5 text-brand-teal shrink-0" />
-                  <span>{currentStop.address}</span>
-                </p>
+            ) : (
+              <div className="p-4 bg-ops-panel rounded-2xl border border-ops-border text-xs text-gray-400">
+                {ordered.length === 0 ? 'No assignments for today.' : 'All of today’s assignments are done. 🎉'}
               </div>
+            )}
 
-              <div className="pt-2 border-t border-ops-border/60 flex items-center justify-between text-xs font-mono text-gray-400">
-                <span>Sched: {currentStop.scheduledArrival}</span>
-                <span className="text-brand-teal">Dwell: ~{currentStop.estDurationMinutes}m</span>
-              </div>
-
-              <Button
-                variant="primary"
-                size="md"
-                className="w-full font-bold shadow-lg shadow-teal-950/60"
-                leftIcon={<CheckCircle2 className="w-4 h-4" />}
-                onClick={() => setIsCheckinModalOpen(true)}
-              >
-                Arrived & Verify Check-In
-              </Button>
-            </div>
-
-            {/* Quick Metrics Grid */}
             <div className="grid grid-cols-2 gap-3 text-xs font-mono">
               <div className="p-3 bg-ops-panel border border-ops-border rounded-xl">
-                <span className="text-gray-400 text-[10px]">Today's Route Odometer</span>
-                <div className="text-base font-bold text-white mt-0.5">42.6 km</div>
+                <span className="text-gray-400 text-[10px]">GPS Accuracy</span>
+                <div className="text-base font-bold text-emerald-400 mt-0.5">±{fmt(tracking.lastFix?.accuracyM, 'm')}</div>
               </div>
               <div className="p-3 bg-ops-panel border border-ops-border rounded-xl">
-                <span className="text-gray-400 text-[10px]">Geofence Accuracy</span>
-                <div className="text-base font-bold text-emerald-400 mt-0.5">±3.2m GPS</div>
+                <span className="text-gray-400 text-[10px]">Fixes Uploaded (shift)</span>
+                <div className="text-base font-bold text-white mt-0.5">
+                  {(tracking.session?.sampleCount ?? 0) + tracking.uploadedThisSession}
+                </div>
               </div>
             </div>
+
+            <PhaseNotice phase={3} feature="Proof-of-visit check-in (geofence, photo, QR)">
+              For now mark stops started/completed manually; automatic geofence check-in and evidence come next.
+            </PhaseNotice>
           </div>
         )}
 
         {activeDriverTab === 'my_route' && (
           <div className="space-y-3 animate-in fade-in">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider font-mono">
-              Today's Sequential Itinerary
-            </div>
-
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider font-mono">Today's Itinerary ({today})</div>
+            {ordered.length === 0 && <p className="text-xs text-gray-500">No assignments for today.</p>}
             <div className="space-y-2.5">
-              {stops.map((stop, idx) => {
-                const isCompleted = completedStops.includes(idx);
-                const isCurrent = idx === activeStopIndex && !isCompleted;
-
+              {ordered.map((assignment, idx) => {
+                const isCompleted = assignment.status === 'completed';
+                const isCurrent = assignment.id === current?.id;
                 return (
                   <div
-                    key={stop.id}
+                    key={assignment.id}
                     className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
                       isCurrent
                         ? 'bg-ops-card border-brand-teal ring-1 ring-brand-teal/40'
                         : isCompleted
-                        ? 'bg-ops-base border-ops-border opacity-60'
-                        : 'bg-ops-panel border-ops-border'
+                          ? 'bg-ops-base border-ops-border opacity-60'
+                          : 'bg-ops-panel border-ops-border'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -168,20 +251,19 @@ export const DriverPortal: React.FC = () => {
                           isCompleted
                             ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                             : isCurrent
-                            ? 'bg-brand-teal text-ops-base'
-                            : 'bg-ops-card text-gray-400 border border-ops-border'
+                              ? 'bg-brand-teal text-ops-base'
+                              : 'bg-ops-card text-gray-400 border border-ops-border'
                         }`}
                       >
                         {idx + 1}
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-white leading-tight">{stop.siteName}</div>
+                        <div className="text-xs font-bold text-white leading-tight">{assignment.location?.name ?? 'Site'}</div>
                         <div className="text-[10px] text-gray-400 font-mono mt-0.5">
-                          Arrival: {stop.scheduledArrival} • {stop.address}
+                          {windowLabel(assignment)} • {assignment.status.replace('_', ' ')}
                         </div>
                       </div>
                     </div>
-
                     {isCompleted ? (
                       <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                     ) : (
@@ -196,182 +278,115 @@ export const DriverPortal: React.FC = () => {
 
         {activeDriverTab === 'history' && (
           <div className="space-y-3 animate-in fade-in">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider font-mono">
-              Completed Attestation History
-            </div>
-
-            <div className="p-3.5 bg-ops-panel rounded-xl border border-ops-border space-y-2 text-xs font-mono">
-              <div className="flex items-center justify-between text-emerald-400 font-bold">
-                <span>Salesforce Tower Bay 4</span>
-                <span>VERIFIED</span>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider font-mono">Completed Today</div>
+            {completed.length === 0 && <p className="text-xs text-gray-500">Nothing completed yet today.</p>}
+            {completed.map((assignment) => {
+              const at = assignment.statusHistory.find((h) => h.status === 'completed')?.at;
+              return (
+                <div key={assignment.id} className="p-3.5 bg-ops-panel rounded-xl border border-ops-border space-y-1 text-xs font-mono">
+                  <div className="flex items-center justify-between text-emerald-400 font-bold">
+                    <span>{assignment.location?.name ?? 'Site'}</span>
+                    <Badge variant="verified" size="sm">
+                      completed
+                    </Badge>
+                  </div>
+                  <div className="text-gray-400 text-[10px]">Completed at {at ? new Date(at).toLocaleTimeString() : '—'}</div>
+                </div>
+              );
+            })}
+            {tracking.session && (
+              <div className="p-3.5 bg-ops-panel rounded-xl border border-ops-border text-[11px] font-mono text-gray-400 space-y-1">
+                <div>Shift started: {new Date(tracking.session.startedAt).toLocaleTimeString()}</div>
+                {tracking.session.endedAt && <div>Shift ended: {new Date(tracking.session.endedAt).toLocaleTimeString()}</div>}
               </div>
-              <div className="text-gray-400 text-[10px]">
-                Check-in: 08:32:14 UTC • Dwell: 26 mins • GPS ±3.2m
-              </div>
-              <div className="text-gray-300 text-[11px] bg-ops-base p-2 rounded border border-ops-border">
-                "Delivered 14 server enclosures. Signed by Shift Supervisor Reynolds."
-              </div>
-            </div>
+            )}
           </div>
         )}
 
         {activeDriverTab === 'status' && (
           <div className="space-y-3 animate-in fade-in">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider font-mono">
-              Device Diagnostics & Telemetry Uplink
-            </div>
-
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider font-mono">Device & Telemetry Uplink</div>
             <div className="p-4 bg-ops-panel border border-ops-border rounded-xl space-y-3 font-mono text-xs">
               <div className="flex justify-between items-center pb-2 border-b border-ops-border">
                 <span className="text-gray-400">GPS Permission:</span>
-                <span className="text-emerald-400 font-bold">GRANTED (High Precision)</span>
+                <span className={tracking.permission === 'granted' ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                  {tracking.permission.toUpperCase()}
+                </span>
               </div>
               <div className="flex justify-between items-center pb-2 border-b border-ops-border">
-                <span className="text-gray-400">Cellular Signal:</span>
-                <span className="text-cyan-400 font-bold">-62 dBm (5G Active)</span>
+                <span className="text-gray-400">Last Fix:</span>
+                <span className="text-cyan-400 font-bold">
+                  {tracking.lastFix
+                    ? `${timeAgo(tracking.lastFix.recordedAt)} • ±${tracking.lastFix.accuracyM}m`
+                    : 'none yet'}
+                </span>
               </div>
               <div className="flex justify-between items-center pb-2 border-b border-ops-border">
-                <span className="text-gray-400">Battery Health:</span>
-                <span className="text-amber-400 font-bold">88% (Charging)</span>
+                <span className="text-gray-400">Offline Queue:</span>
+                <span className="text-brand-teal font-bold">{tracking.queueLength} pending</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-ops-border">
+                <span className="text-gray-400">Last Upload:</span>
+                <span className="text-white">
+                  {tracking.lastUpload
+                    ? `${timeAgo(tracking.lastUpload.at)} • ${tracking.lastUpload.accepted} ok / ${tracking.lastUpload.duplicates} dup / ${tracking.lastUpload.rejected} rej`
+                    : '—'}
+                </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-400">Offline Queue:</span>
-                <span className="text-brand-teal font-bold">0 Pending Packets</span>
+                <span className="text-gray-400">Clock Skew vs Server:</span>
+                <span className="text-white">{tracking.lastUpload ? `${Math.round(tracking.lastUpload.serverSkewMs / 1000)}s` : '—'}</span>
               </div>
             </div>
-
-            <button
-              onClick={() => alert('Emergency SOS alert dispatched to Central Operations Control!')}
-              className="w-full py-3 bg-rose-950/50 hover:bg-rose-950/80 border border-rose-500/60 rounded-xl text-rose-300 font-mono text-xs font-bold flex items-center justify-center gap-2 transition-colors mt-4"
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full"
+              disabled={!tracking.onShift || tracking.queueLength === 0}
+              leftIcon={<UploadCloud className="w-4 h-4" />}
+              onClick={() => void tracking.flush()}
             >
-              <AlertOctagon className="w-4 h-4 text-rose-400" />
-              DISPATCH EMERGENCY SOS
-            </button>
+              Upload Queued Fixes Now
+            </Button>
+            <p className="text-[11px] text-gray-500">
+              Keep this app open while on shift: browsers pause GPS in the background, and the operations team will
+              then see you as stale/offline.
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              leftIcon={<LogOut className="w-4 h-4" />}
+              onClick={() => void logout()}
+            >
+              Sign Out
+            </Button>
           </div>
         )}
       </div>
 
       {/* Bottom PWA Navigation Bar */}
       <nav className="fixed bottom-0 inset-x-0 max-w-md mx-auto bg-ops-panel/95 backdrop-blur-xl border-t border-ops-border p-2 grid grid-cols-4 gap-1 text-[10px] font-mono z-40">
-        <button
-          onClick={() => setActiveDriverTab('my_day')}
-          className={`flex flex-col items-center gap-1 py-1 rounded-lg transition-colors ${
-            activeDriverTab === 'my_day' ? 'text-brand-teal font-bold' : 'text-gray-400'
-          }`}
-        >
-          <Calendar className="w-4 h-4" />
-          <span>My Day</span>
-        </button>
-        <button
-          onClick={() => setActiveDriverTab('my_route')}
-          className={`flex flex-col items-center gap-1 py-1 rounded-lg transition-colors ${
-            activeDriverTab === 'my_route' ? 'text-brand-teal font-bold' : 'text-gray-400'
-          }`}
-        >
-          <Navigation className="w-4 h-4" />
-          <span>Route</span>
-        </button>
-        <button
-          onClick={() => setActiveDriverTab('history')}
-          className={`flex flex-col items-center gap-1 py-1 rounded-lg transition-colors ${
-            activeDriverTab === 'history' ? 'text-brand-teal font-bold' : 'text-gray-400'
-          }`}
-        >
-          <History className="w-4 h-4" />
-          <span>History</span>
-        </button>
-        <button
-          onClick={() => setActiveDriverTab('status')}
-          className={`flex flex-col items-center gap-1 py-1 rounded-lg transition-colors ${
-            activeDriverTab === 'status' ? 'text-brand-teal font-bold' : 'text-gray-400'
-          }`}
-        >
-          <Radio className="w-4 h-4" />
-          <span>Status</span>
-        </button>
+        {(
+          [
+            ['my_day', 'My Day', Calendar],
+            ['my_route', 'Route', Navigation],
+            ['history', 'History', History],
+            ['status', 'Status', Radio],
+          ] as const
+        ).map(([tab, label, Icon]) => (
+          <button
+            key={tab}
+            onClick={() => setActiveDriverTab(tab)}
+            className={`flex flex-col items-center gap-1 py-1 rounded-lg transition-colors ${
+              activeDriverTab === tab ? 'text-brand-teal font-bold' : 'text-gray-400'
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            <span>{label}</span>
+          </button>
+        ))}
       </nav>
-
-      {/* Driver Check-in Evidence Modal */}
-      <Modal
-        isOpen={isCheckinModalOpen}
-        onClose={() => setIsCheckinModalOpen(false)}
-        title="Field Verification Check-In"
-        subtitle={currentStop.siteName}
-        size="sm"
-      >
-        <div className="space-y-4 text-xs">
-          {checkinSuccess ? (
-            <div className="py-8 text-center space-y-3">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
-              <h3 className="text-base font-bold text-white">Proof of Visit Attested!</h3>
-              <p className="text-xs text-gray-400 font-mono">
-                Cryptographic hash generated. Syncing with Ops Control...
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Geofence GPS Validation confirmation */}
-              <div className="p-3 bg-emerald-950/30 border border-emerald-500/40 rounded-xl text-emerald-300 flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Geofence Boundary Match: 100% (Within 4.2m)</span>
-              </div>
-
-              {/* Photo Evidence Capture Simulation */}
-              <div>
-                <label className="block text-gray-300 font-semibold mb-1.5">
-                  Capture Site Delivery Photo Proof
-                </label>
-                {photoCaptured ? (
-                  <div className="relative rounded-xl overflow-hidden border border-brand-teal">
-                    <img
-                      src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=400&q=80"
-                      alt="Captured delivery proof"
-                      className="w-full h-40 object-cover"
-                    />
-                    <div className="absolute top-2 right-2 bg-emerald-500 text-ops-base px-2 py-0.5 rounded text-[10px] font-bold">
-                      PHOTO ATTACHED
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleCapturePhoto}
-                    className="w-full h-32 border-2 border-dashed border-ops-border rounded-xl flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-white hover:border-brand-teal bg-ops-base/40 transition-colors"
-                  >
-                    <Camera className="w-6 h-6 text-brand-teal" />
-                    <span className="text-xs font-semibold">Tap to Take Proof Photo</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-gray-300 font-semibold mb-1">
-                  Delivery Notes / Recipient Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Received by Bay 4 Supervisor"
-                  value={driverNotes}
-                  onChange={(e) => setDriverNotes(e.target.value)}
-                  className="w-full bg-ops-card border border-ops-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-teal"
-                />
-              </div>
-
-              <Button
-                variant="primary"
-                size="md"
-                className="w-full font-bold mt-2"
-                disabled={!photoCaptured}
-                onClick={handleCompleteCheckin}
-              >
-                Submit Cryptographic Check-in
-              </Button>
-            </>
-          )}
-        </div>
-      </Modal>
     </DriverShell>
   );
 };

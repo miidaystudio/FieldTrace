@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bell, Clock, ShieldCheck, AlertOctagon, User, Radio, RefreshCw } from 'lucide-react';
+import { Search, Bell, Clock, AlertOctagon, Radio } from 'lucide-react';
 import { useFleetStore } from '../../store/useFleetStore';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export const Topbar: React.FC = () => {
   const navigate = useNavigate();
   const anomalies = useFleetStore((state) => state.anomalies);
-  const kpis = useFleetStore((state) => state.kpis);
-  const agents = useFleetStore((state) => state.agents);
+  const socketState = useFleetStore((state) => state.socketState);
+  const eventsReceived = useFleetStore((state) => state.eventsReceived);
+  const lastLatencyMs = useFleetStore((state) => state.lastLatencyMs);
+  const timeZone = useAuthStore((state) => state.organization?.timezone ?? 'UTC');
   const searchQuery = useFleetStore((state) => state.searchQuery);
   const setSearchQuery = useFleetStore((state) => state.setSearchQuery);
   const setSelectedAgent = useFleetStore((state) => state.setSelectedAgent);
 
   const [timeString, setTimeString] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
-  const [shift, setShift] = useState('Morning Dispatch (06:00 - 14:00)');
 
   const unreadAnomalies = anomalies.filter((a) => a.status === 'open');
 
@@ -22,18 +24,19 @@ export const Topbar: React.FC = () => {
     const updateTime = () => {
       const now = new Date();
       setTimeString(
-        now.toLocaleTimeString('en-US', {
+        now.toLocaleTimeString('en-GB', {
+          timeZone,
           hour12: false,
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
-        }) + ' UTC'
+        }) + ` ${timeZone}`
       );
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timeZone]);
 
   return (
     <header className="h-14 bg-ops-panel border-b border-ops-border flex items-center justify-between px-5 text-xs select-none z-30 shrink-0">
@@ -50,15 +53,6 @@ export const Topbar: React.FC = () => {
           />
         </div>
 
-        <select
-          value={shift}
-          onChange={(e) => setShift(e.target.value)}
-          className="bg-ops-card border border-ops-border rounded-lg px-2.5 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-brand-teal hidden lg:block"
-        >
-          <option>Morning Dispatch (06:00 - 14:00)</option>
-          <option>Afternoon Swing (14:00 - 22:00)</option>
-          <option>Night Patrol (22:00 - 06:00)</option>
-        </select>
       </div>
 
       {/* Right Telemetry Pill, Clock, & Alerts */}
@@ -69,10 +63,22 @@ export const Topbar: React.FC = () => {
           <span>{timeString}</span>
         </div>
 
-        {/* Fleet Integrity Status Pill */}
-        <div className="hidden md:flex items-center gap-2 px-2.5 py-1 bg-emerald-950/40 border border-emerald-500/40 rounded-lg text-emerald-400 text-xs font-semibold">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>{kpis.complianceScore}% Integrity</span>
+        {/* Live Socket Connection Pill */}
+        <div
+          className={`hidden md:flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-semibold border ${
+            socketState === 'connected'
+              ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400'
+              : socketState === 'offline'
+                ? 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
+          }`}
+          title="Socket.IO connection to the FieldTrace backend"
+        >
+          <Radio className="w-4 h-4" />
+          <span className="uppercase">{socketState === 'connected' ? 'Live' : socketState}</span>
+          <span className="font-mono text-[10px] opacity-80">
+            {eventsReceived} evt{lastLatencyMs !== null ? ` · ${lastLatencyMs}ms` : ''}
+          </span>
         </div>
 
         {/* Anomaly Notification Bell Dropdown */}

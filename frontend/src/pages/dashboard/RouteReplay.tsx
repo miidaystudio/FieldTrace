@@ -1,52 +1,77 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useFleetStore } from '../../store/useFleetStore';
-import { mockRouteReplay } from '../../api/mockFleetData';
 import { FleetMap } from '../../components/map/FleetMap';
 import { Card } from '../../components/common/Card';
-import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
-import {
-  Play,
-  Pause,
-  RotateCcw,
-  FastForward,
-  Gauge,
-  Compass,
-  Clock,
-  Calendar,
-  AlertTriangle,
-  MapPin,
-  CheckCircle2,
-  Share2,
-} from 'lucide-react';
+import { Play, Pause, RotateCcw, Clock, Calendar, CheckCircle2, Loader2, CircleDashed } from 'lucide-react';
+import { assignmentsApi, fleetApi } from '../../api/backend';
+import { errorMessage } from '../../api/client';
+import { toRouteStops, toWaypoints } from '../../api/adapters';
+import type { Agent, RouteStop, RouteWaypoint } from '../../api/types';
+import { FormError } from '../auth/LoginPage';
+
+const timeLabel = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString() : '—');
 
 export const RouteReplay: React.FC = () => {
   const agents = useFleetStore((state) => state.agents);
   const geofences = useFleetStore((state) => state.geofences);
+  const today = useFleetStore((state) => state.today);
+  const [params, setParams] = useSearchParams();
 
-  const [selectedAgentId, setSelectedAgentId] = useState('agent-001');
-  const [selectedDate, setSelectedDate] = useState('2026-10-09');
-  
+  const sortedAgents = [...agents].sort((a, b) => a.name.localeCompare(b.name));
+  const selectedAgentId = params.get('agent') || sortedAgents[0]?.id || '';
+  const [selectedDate, setSelectedDate] = useState(today);
+
+  const [waypoints, setWaypoints] = useState<RouteWaypoint[]>([]);
+  const [stops, setStops] = useState<RouteStop[]>([]);
+  const [distanceM, setDistanceM] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   // Scrub Index (0 to waypoints.length - 1)
   const [scrubIndex, setScrubIndex] = useState(0);
   const [isPlayingReplay, setIsPlayingReplay] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
-  const waypoints = mockRouteReplay.waypoints;
-  const stops = mockRouteReplay.stops;
-  const currentWaypoint = waypoints[scrubIndex] || waypoints[0];
+  // Load the agent's GPS history and that day's assignments (planned stops).
+  useEffect(() => {
+    if (!selectedAgentId || !selectedDate) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setIsPlayingReplay(false);
+    setScrubIndex(0);
+    const from = new Date(`${selectedDate}T00:00:00`);
+    const end = new Date(from.getTime() + 24 * 3_600_000 - 1);
+    const to = end > new Date() ? new Date() : end;
+    Promise.all([
+      from < to ? fleetApi.track(selectedAgentId, from.toISOString(), to.toISOString()) : null,
+      assignmentsApi.listForDate(selectedDate),
+    ])
+      .then(([track, assignments]) => {
+        if (cancelled) return;
+        setWaypoints(track ? toWaypoints(track.points) : []);
+        setDistanceM(track?.distanceM ?? 0);
+        setStops(toRouteStops(assignments.filter((a) => a.agentId === selectedAgentId)));
+      })
+      .catch((err) => !cancelled && setError(errorMessage(err)))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAgentId, selectedDate]);
+
+  const currentWaypoint = waypoints[scrubIndex] ?? waypoints[0];
 
   // Playback timer loop
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     if (!isPlayingReplay) {
       if (timerRef.current) clearInterval(timerRef.current);
       return;
     }
-
-    const intervalMs = Math.max(80, Math.floor(1000 / playbackSpeed));
-
+    const intervalMs = Math.max(40, Math.floor(1000 / playbackSpeed));
     timerRef.current = setInterval(() => {
       setScrubIndex((prev) => {
         if (prev >= waypoints.length - 1) {
@@ -56,22 +81,30 @@ export const RouteReplay: React.FC = () => {
         return prev + 1;
       });
     }, intervalMs);
-
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isPlayingReplay, playbackSpeed, waypoints.length]);
 
-  // Synthetic single moving agent for the map at current scrub waypoint
-  const currentScrubAgent = {
-    ...agents[0],
-    currentLat: currentWaypoint.lat,
-    currentLng: currentWaypoint.lng,
-    speedKmH: currentWaypoint.speedKmH,
-    status: currentWaypoint.status,
-  };
+  const agent = agents.find((a) => a.id === selectedAgentId);
+  const scrubAgent: Agent | null =
+    agent && currentWaypoint
+      ? {
+          ...agent,
+          hasPosition: true,
+          currentLat: currentWaypoint.lat,
+          currentLng: currentWaypoint.lng,
+          speedKmH: currentWaypoint.speedKmH,
+          bearing: currentWaypoint.telemetry?.heading ?? agent.bearing,
+          status: currentWaypoint.status,
+        }
+      : null;
 
-  const progressPercent = Math.round((scrubIndex / (waypoints.length - 1)) * 100);
+  const progressPercent = waypoints.length > 1 ? Math.round((scrubIndex / (waypoints.length - 1)) * 100) : 0;
+  const durationMinutes =
+    waypoints.length > 1
+      ? Math.round((Date.parse(waypoints[waypoints.length - 1]!.timestamp) - Date.parse(waypoints[0]!.timestamp)) / 60_000)
+      : 0;
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
@@ -83,7 +116,7 @@ export const RouteReplay: React.FC = () => {
             <span>Historical Route Playback & Telemetry Scrubber</span>
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            Frame-accurate forensic playback of driver trajectories, speed violations, and route deviations.
+            Replay the recorded GPS trail of an agent for a day, with the assignments planned for that day.
           </p>
         </div>
 
@@ -94,17 +127,17 @@ export const RouteReplay: React.FC = () => {
             <input
               type="date"
               value={selectedDate}
+              max={today}
               onChange={(e) => setSelectedDate(e.target.value)}
               className="bg-transparent text-white focus:outline-none font-mono"
             />
           </div>
-
           <select
             value={selectedAgentId}
-            onChange={(e) => setSelectedAgentId(e.target.value)}
+            onChange={(e) => setParams({ agent: e.target.value })}
             className="bg-ops-panel border border-ops-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-teal"
           >
-            {agents.slice(0, 10).map((a) => (
+            {sortedAgents.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.callsign} - {a.name}
               </option>
@@ -113,47 +146,60 @@ export const RouteReplay: React.FC = () => {
         </div>
       </div>
 
+      <FormError message={error} />
+
       {/* Main Map + Side Telemetry Deck */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Map Column (3 cols) */}
         <div className="lg:col-span-3 flex flex-col gap-4">
           <div className="h-[480px] w-full rounded-2xl overflow-hidden border border-ops-border shadow-2xl relative">
             <FleetMap
-              agents={[currentScrubAgent]}
+              key={`${selectedAgentId}-${selectedDate}-${waypoints.length}`}
+              agents={scrubAgent ? [scrubAgent] : []}
               geofences={geofences}
               activeRouteWaypoints={waypoints.slice(0, scrubIndex + 1)}
               activeRouteStops={stops}
-              selectedAgentId={currentScrubAgent.id}
+              selectedAgentId={scrubAgent?.id}
             />
 
             {/* Floating Replay HUD */}
             <div className="absolute top-4 left-4 z-10 bg-ops-panel/90 backdrop-blur-md border border-ops-border px-3 py-2 rounded-xl text-xs font-mono text-gray-300 shadow-xl space-y-1">
-              <div className="text-brand-teal font-bold flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-brand-teal animate-pulse" />
-                PLAYBACK POSITION: {currentWaypoint.timestamp}
-              </div>
-              <div className="text-[11px] text-gray-400">
-                LAT: {currentWaypoint.lat.toFixed(5)} • LNG: {currentWaypoint.lng.toFixed(5)}
-              </div>
+              {loading ? (
+                <div className="flex items-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-teal" /> Loading track…
+                </div>
+              ) : currentWaypoint ? (
+                <>
+                  <div className="text-brand-teal font-bold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-brand-teal animate-pulse" />
+                    PLAYBACK POSITION: {timeLabel(currentWaypoint.timestamp)}
+                  </div>
+                  <div className="text-[11px] text-gray-400">
+                    LAT: {currentWaypoint.lat.toFixed(5)} • LNG: {currentWaypoint.lng.toFixed(5)}
+                  </div>
+                </>
+              ) : (
+                <div>No GPS points recorded for this agent on {selectedDate}.</div>
+              )}
             </div>
           </div>
 
           {/* Interactive Scrub Timeline Controller Bar */}
           <div className="bg-ops-panel border border-ops-border rounded-2xl p-4 space-y-3">
-            {/* Scrubber Range Slider */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs font-mono text-gray-400">
-                <span>Start: {waypoints[0]?.timestamp}</span>
+                <span>Start: {timeLabel(waypoints[0]?.timestamp)}</span>
                 <span className="text-brand-teal font-bold text-sm">
-                  Scrubbing: {currentWaypoint.timestamp} ({progressPercent}%)
+                  {waypoints.length} points • {progressPercent}%
                 </span>
-                <span>End: {waypoints[waypoints.length - 1]?.timestamp}</span>
+                <span>End: {timeLabel(waypoints[waypoints.length - 1]?.timestamp)}</span>
               </div>
               <input
                 type="range"
                 min={0}
-                max={waypoints.length - 1}
+                max={Math.max(0, waypoints.length - 1)}
                 value={scrubIndex}
+                disabled={waypoints.length < 2}
                 onChange={(e) => setScrubIndex(Number(e.target.value))}
                 className="w-full accent-brand-teal h-2 bg-ops-base rounded-lg cursor-pointer appearance-none border border-ops-border"
               />
@@ -163,8 +209,12 @@ export const RouteReplay: React.FC = () => {
             <div className="flex items-center justify-between pt-2 border-t border-ops-border">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setIsPlayingReplay(!isPlayingReplay)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  disabled={waypoints.length < 2}
+                  onClick={() => {
+                    if (scrubIndex >= waypoints.length - 1) setScrubIndex(0);
+                    setIsPlayingReplay(!isPlayingReplay);
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all disabled:opacity-50 ${
                     isPlayingReplay
                       ? 'bg-amber-500 text-ops-base hover:bg-amber-400'
                       : 'bg-brand-teal text-ops-base hover:bg-[#4dd4be] shadow-lg shadow-teal-950/40'
@@ -173,7 +223,6 @@ export const RouteReplay: React.FC = () => {
                   {isPlayingReplay ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
                   <span>{isPlayingReplay ? 'Pause Scrub' : 'Play Playback'}</span>
                 </button>
-
                 <button
                   onClick={() => {
                     setIsPlayingReplay(false);
@@ -186,16 +235,14 @@ export const RouteReplay: React.FC = () => {
                 </button>
               </div>
 
-              {/* Speed Multiplier Pills */}
+              {/* Speed Multiplier Pills (points per second) */}
               <div className="flex items-center gap-1 bg-ops-base p-1 rounded-xl border border-ops-border">
                 {[1, 5, 15, 30].map((spd) => (
                   <button
                     key={spd}
                     onClick={() => setPlaybackSpeed(spd)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all ${
-                      playbackSpeed === spd
-                        ? 'bg-brand-teal text-ops-base shadow-sm'
-                        : 'text-gray-400 hover:text-white'
+                      playbackSpeed === spd ? 'bg-brand-teal text-ops-base shadow-sm' : 'text-gray-400 hover:text-white'
                     }`}
                   >
                     {spd}x
@@ -211,12 +258,12 @@ export const RouteReplay: React.FC = () => {
           <Card
             header={
               <div className="flex items-center justify-between w-full">
-                <span className="font-bold text-xs uppercase tracking-wider font-mono">
-                  Instantaneous Telemetry
-                </span>
-                <Badge variant={currentWaypoint.status as any} size="sm">
-                  {currentWaypoint.status}
-                </Badge>
+                <span className="font-bold text-xs uppercase tracking-wider font-mono">Instantaneous Telemetry</span>
+                {currentWaypoint && (
+                  <Badge variant={currentWaypoint.status} size="sm">
+                    {currentWaypoint.status}
+                  </Badge>
+                )}
               </div>
             }
           >
@@ -224,7 +271,7 @@ export const RouteReplay: React.FC = () => {
               <div className="p-3 bg-ops-base border border-ops-border rounded-xl">
                 <span className="text-[10px] text-gray-400 font-mono">Recorded Velocity</span>
                 <div className="text-2xl font-bold font-mono text-brand-teal mt-0.5 flex items-baseline gap-1">
-                  <span>{currentWaypoint.speedKmH}</span>
+                  <span>{currentWaypoint?.speedKmH ?? '—'}</span>
                   <span className="text-xs text-gray-400 font-normal">km/h</span>
                 </div>
               </div>
@@ -232,40 +279,37 @@ export const RouteReplay: React.FC = () => {
               <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
                 <div className="p-2.5 bg-ops-card rounded-lg border border-ops-border">
                   <div className="text-gray-400 text-[10px]">Total Distance</div>
-                  <div className="text-white font-bold mt-0.5">{mockRouteReplay.totalDistanceKm} km</div>
+                  <div className="text-white font-bold mt-0.5">{(distanceM / 1000).toFixed(2)} km</div>
                 </div>
                 <div className="p-2.5 bg-ops-card rounded-lg border border-ops-border">
-                  <div className="text-gray-400 text-[10px]">Shift Duration</div>
-                  <div className="text-white font-bold mt-0.5">{mockRouteReplay.durationMinutes} mins</div>
+                  <div className="text-gray-400 text-[10px]">Tracked Duration</div>
+                  <div className="text-white font-bold mt-0.5">{durationMinutes} mins</div>
                 </div>
               </div>
             </div>
           </Card>
 
           {/* Stops Manifest */}
-          <Card
-            header={
-              <span className="font-bold text-xs uppercase tracking-wider font-mono">
-                Route Stops ({stops.length})
-              </span>
-            }
-          >
+          <Card header={<span className="font-bold text-xs uppercase tracking-wider font-mono">Planned Stops ({stops.length})</span>}>
             <div className="space-y-2.5 max-h-[260px] overflow-y-auto text-xs">
+              {stops.length === 0 && <p className="text-gray-500 italic">No assignments on this day.</p>}
               {stops.map((stop, idx) => (
-                <div
-                  key={stop.id}
-                  className="p-2.5 bg-ops-card rounded-xl border border-ops-border flex items-start gap-2.5"
-                >
+                <div key={stop.id} className="p-2.5 bg-ops-card rounded-xl border border-ops-border flex items-start gap-2.5">
                   <div className="w-5 h-5 rounded-full bg-brand-teal/20 text-brand-teal border border-brand-teal/40 font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
                     {idx + 1}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-white truncate">{stop.siteName}</div>
                     <div className="text-[10px] text-gray-400 font-mono">
-                      Arrival: {stop.actualArrival} (Sched: {stop.scheduledArrival})
+                      {stop.actualArrival ? `Completed: ${stop.actualArrival}` : `Status: ${stop.status}`} (Sched:{' '}
+                      {stop.scheduledArrival})
                     </div>
                   </div>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  {stop.status === 'completed' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  ) : (
+                    <CircleDashed className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
+                  )}
                 </div>
               ))}
             </div>

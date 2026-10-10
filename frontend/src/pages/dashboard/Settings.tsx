@@ -1,18 +1,60 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
-import { Settings as SettingsIcon, Shield, Sliders, Bell, Radio, Key, Save } from 'lucide-react';
+import { PhaseNotice } from '../../components/common/PhaseNotice';
+import { Settings as SettingsIcon, Shield, Radio, Save, Clock } from 'lucide-react';
+import { organizationApi, type OrganizationSettings } from '../../api/backend';
+import { errorMessage } from '../../api/client';
+import { useAuthStore } from '../../store/useAuthStore';
+import { FormError } from '../auth/LoginPage';
+
+const input = 'w-full bg-ops-base border border-ops-border rounded-lg px-3 py-2 text-white font-mono disabled:opacity-60';
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export const Settings: React.FC = () => {
-  const [toleranceMeters, setToleranceMeters] = useState(30);
-  const [speedThreshold, setSpeedThreshold] = useState(90);
-  const [jumpDistanceThreshold, setJumpDistanceThreshold] = useState(1500);
-  const [soundAlerts, setSoundAlerts] = useState(true);
+  const organization = useAuthStore((state) => state.organization);
+  const setOrganization = useAuthStore((state) => state.setOrganization);
+  const isAdmin = useAuthStore((state) => state.user?.role === 'admin');
+
+  const [name, setName] = useState(organization?.name ?? '');
+  const [timezone, setTimezone] = useState(organization?.timezone ?? 'UTC');
+  const [settings, setSettings] = useState<OrganizationSettings | null>(organization?.settings ?? null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  // Always show the latest stored values.
+  useEffect(() => {
+    organizationApi
+      .get()
+      .then((org) => {
+        setOrganization(org);
+        setName(org.name);
+        setTimezone(org.timezone);
+        setSettings(org.settings);
+      })
+      .catch((err) => setError(errorMessage(err)));
+  }, [setOrganization]);
+
+  if (!settings) return <div className="p-6 text-xs text-gray-400">Loading settings…</div>;
+
+  const update = <K extends keyof OrganizationSettings>(key: K, value: OrganizationSettings[K]) =>
+    setSettings({ ...settings, [key]: value });
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const org = await organizationApi.update({ name, timezone, settings });
+      setOrganization(org);
+      setSettings(org.settings);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -21,107 +63,124 @@ export const Settings: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
             <SettingsIcon className="w-6 h-6 text-brand-teal" />
-            <span>Platform Configuration & Security Thresholds</span>
+            <span>Organization Settings</span>
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            Tune algorithmic sensitivity for GPS spoofing detection, geofence buffers, and notification pipelines.
+            Stored in the backend and applied to live tracking (connectivity status) and new geofences.
+            {!isAdmin && ' Read-only: only admins can change settings.'}
           </p>
         </div>
-
-        <Button
-          variant="primary"
-          size="sm"
-          leftIcon={<Save className="w-4 h-4" />}
-          onClick={handleSave}
-        >
-          {saved ? 'Settings Saved!' : 'Save Changes'}
-        </Button>
+        {isAdmin && (
+          <Button variant="primary" size="sm" leftIcon={<Save className="w-4 h-4" />} disabled={saving} onClick={() => void handleSave()}>
+            {saving ? 'Saving…' : saved ? 'Settings Saved!' : 'Save Changes'}
+          </Button>
+        )}
       </div>
+
+      <FormError message={error} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Geofence & Check-In Rules */}
-        <Card
-          header={
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-brand-teal" />
-              <span>Geofencing & Verification Engine</span>
-            </div>
-          }
-        >
+        <Card header={<div className="flex items-center gap-2"><SettingsIcon className="w-4 h-4 text-brand-teal" /><span>Organization</span></div>}>
           <div className="space-y-4">
             <div>
-              <label className="block font-semibold text-gray-300 mb-1">
-                Default Auto-Verification Tolerance (Meters)
-              </label>
-              <input
-                type="number"
-                value={toleranceMeters}
-                onChange={(e) => setToleranceMeters(Number(e.target.value))}
-                className="w-full bg-ops-base border border-ops-border rounded-lg px-3 py-2 text-white font-mono"
-              />
-              <span className="text-[11px] text-gray-400 mt-1 block">
-                Allowable GPS jitter around site perimeter before flagging check-in.
-              </span>
+              <label className="block font-semibold text-gray-300 mb-1">Name</label>
+              <input className={input} disabled={!isAdmin} value={name} onChange={(e) => setName(e.target.value)} />
             </div>
-
             <div>
-              <label className="block font-semibold text-gray-300 mb-1">
-                Minimum Dwell Time for Auto-Attendance
-              </label>
-              <input
-                type="number"
-                defaultValue={3}
-                className="w-full bg-ops-base border border-ops-border rounded-lg px-3 py-2 text-white font-mono"
-              />
-              <span className="text-[11px] text-gray-400 mt-1 block">
-                Minutes an agent must remain inside perimeter before visit is recorded.
-              </span>
+              <label className="block font-semibold text-gray-300 mb-1">Timezone (IANA)</label>
+              <input className={input} disabled={!isAdmin} value={timezone} onChange={(e) => setTimezone(e.target.value)} />
+              <span className="text-[11px] text-gray-400 mt-1 block">Assignment dates and "today" use this timezone.</span>
             </div>
           </div>
         </Card>
 
-        {/* Kinematic Anomaly Sensitivity */}
-        <Card
-          header={
-            <div className="flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-rose-400" />
-              <span>AI Kinematic Anomaly Scoring Thresholds</span>
-            </div>
-          }
-        >
+        <Card header={<div className="flex items-center gap-2"><Radio className="w-4 h-4 text-brand-teal" /><span>Live Tracking Freshness</span></div>}>
           <div className="space-y-4">
             <div>
-              <label className="block font-semibold text-gray-300 mb-1">
-                Max Kinematic Jump Distance (Meters in &lt; 2s)
-              </label>
-              <input
-                type="number"
-                value={jumpDistanceThreshold}
-                onChange={(e) => setJumpDistanceThreshold(Number(e.target.value))}
-                className="w-full bg-ops-base border border-ops-border rounded-lg px-3 py-2 text-white font-mono"
-              />
-              <span className="text-[11px] text-gray-400 mt-1 block">
-                Triggers instant Mock-Location / Teleportation threat alert.
-              </span>
+              <label className="block font-semibold text-gray-300 mb-1">Mark stale after (seconds without GPS)</label>
+              <input type="number" className={input} disabled={!isAdmin} value={settings.staleAfterSec} onChange={(e) => update('staleAfterSec', Number(e.target.value))} />
             </div>
-
             <div>
-              <label className="block font-semibold text-gray-300 mb-1">
-                Urban Speed Limit Exceedance Threshold (km/h)
-              </label>
+              <label className="block font-semibold text-gray-300 mb-1">Mark offline after (seconds without GPS)</label>
+              <input type="number" className={input} disabled={!isAdmin} value={settings.offlineAfterSec} onChange={(e) => update('offlineAfterSec', Number(e.target.value))} />
+              <span className="text-[11px] text-gray-400 mt-1 block">Must be greater than the stale threshold.</span>
+            </div>
+            <div>
+              <label className="block font-semibold text-gray-300 mb-1">Telemetry retention (days)</label>
+              <input type="number" className={input} disabled={!isAdmin} value={settings.telemetryRetentionDays} onChange={(e) => update('telemetryRetentionDays', Number(e.target.value))} />
+            </div>
+          </div>
+        </Card>
+
+        <Card header={<div className="flex items-center gap-2"><Shield className="w-4 h-4 text-brand-teal" /><span>Geofence Defaults (new locations)</span></div>}>
+          <div className="space-y-4">
+            <div>
+              <label className="block font-semibold text-gray-300 mb-1">Default radius (meters)</label>
               <input
                 type="number"
-                value={speedThreshold}
-                onChange={(e) => setSpeedThreshold(Number(e.target.value))}
-                className="w-full bg-ops-base border border-ops-border rounded-lg px-3 py-2 text-white font-mono"
+                className={input}
+                disabled={!isAdmin}
+                value={settings.geofenceDefaults.radiusM}
+                onChange={(e) => update('geofenceDefaults', { ...settings.geofenceDefaults, radiusM: Number(e.target.value) })}
               />
-              <span className="text-[11px] text-gray-400 mt-1 block">
-                Velocity limit above which high-risk speeding incidents are created.
-              </span>
+            </div>
+            <div>
+              <label className="block font-semibold text-gray-300 mb-1">Minimum dwell for a visit (seconds)</label>
+              <input
+                type="number"
+                className={input}
+                disabled={!isAdmin}
+                value={settings.geofenceDefaults.minDwellSec}
+                onChange={(e) => update('geofenceDefaults', { ...settings.geofenceDefaults, minDwellSec: Number(e.target.value) })}
+              />
+            </div>
+          </div>
+        </Card>
+
+        <Card header={<div className="flex items-center gap-2"><Clock className="w-4 h-4 text-brand-teal" /><span>Working Hours</span></div>}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-gray-300 mb-1">Start</label>
+                <input type="time" className={input} disabled={!isAdmin} value={settings.workingHours.start} onChange={(e) => update('workingHours', { ...settings.workingHours, start: e.target.value })} />
+              </div>
+              <div>
+                <label className="block font-semibold text-gray-300 mb-1">End</label>
+                <input type="time" className={input} disabled={!isAdmin} value={settings.workingHours.end} onChange={(e) => update('workingHours', { ...settings.workingHours, end: e.target.value })} />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {DAYS.map((label, index) => {
+                const day = index + 1;
+                const active = settings.workingHours.days.includes(day);
+                return (
+                  <button
+                    key={label}
+                    disabled={!isAdmin}
+                    onClick={() =>
+                      update('workingHours', {
+                        ...settings.workingHours,
+                        days: active
+                          ? settings.workingHours.days.filter((d) => d !== day)
+                          : [...settings.workingHours.days, day].sort(),
+                      })
+                    }
+                    className={`px-2.5 py-1 rounded-lg border font-mono ${
+                      active ? 'bg-brand-teal text-ops-base border-brand-teal font-bold' : 'text-gray-400 border-ops-border'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </Card>
       </div>
+
+      <PhaseNotice phase={4} feature="Anomaly scoring thresholds">
+        Speed and GPS-jump thresholds become configurable together with the explainable anomaly rules.
+      </PhaseNotice>
     </div>
   );
 };

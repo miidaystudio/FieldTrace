@@ -1,173 +1,208 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useFleetStore } from '../../store/useFleetStore';
 import { DataTable, Column } from '../../components/common/DataTable';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { Tabs } from '../../components/common/Tabs';
+import { Modal } from '../../components/common/Modal';
+import { ClipboardList, Plus, MapPin, Calendar, Loader2 } from 'lucide-react';
 import {
-  ClipboardList,
-  Plus,
-  Clock,
-  MapPin,
-  CheckCircle2,
-  AlertTriangle,
-  Send,
-  Calendar,
-} from 'lucide-react';
+  assignmentsApi,
+  type AssignmentDto,
+  type AssignmentPriority,
+  type AssignmentStatus,
+} from '../../api/backend';
+import { errorMessage } from '../../api/client';
+import { avatarFor } from '../../api/adapters';
+import { FormError, inputClass } from '../auth/LoginPage';
 
-interface TaskOrder {
-  id: string;
-  orderNumber: string;
-  title: string;
-  clientName: string;
-  siteAddress: string;
-  assignedAgentName: string;
-  assignedAgentAvatar: string;
-  priority: 'urgent' | 'high' | 'normal';
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-  scheduledTime: string;
-  estDurationMinutes: number;
-}
+const STATUS_VARIANT: Record<AssignmentStatus, 'verified' | 'moving' | 'slate' | 'flagged' | 'idle'> = {
+  completed: 'verified',
+  in_progress: 'moving',
+  pending: 'slate',
+  overdue: 'idle',
+  cancelled: 'flagged',
+};
 
-const mockTasks: TaskOrder[] = [
-  {
-    id: 'tsk-001',
-    orderNumber: 'WO-2026-904',
-    title: 'Cryo-Specimen Secure Transport & Handoff',
-    clientName: 'Genentech BioPharma',
-    siteAddress: '1700 Owens St, San Francisco, CA',
-    assignedAgentName: 'Marcus Vance',
-    assignedAgentAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-    priority: 'urgent',
-    status: 'in_progress',
-    scheduledTime: '08:30 - 09:15',
-    estDurationMinutes: 45,
-  },
-  {
-    id: 'tsk-002',
-    orderNumber: 'WO-2026-905',
-    title: 'Mission Bay Primary Data Hub Server Blade Swap',
-    clientName: 'Salesforce Corp',
-    siteAddress: '415 Mission St, Bay 4, SF',
-    assignedAgentName: 'Elena Rostova',
-    assignedAgentAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80',
-    priority: 'high',
-    status: 'completed',
-    scheduledTime: '09:30 - 10:30',
-    estDurationMinutes: 60,
-  },
-  {
-    id: 'tsk-003',
-    orderNumber: 'WO-2026-906',
-    title: 'Pier 39 Marine Sensor Calibration & Battery Replacement',
-    clientName: 'Pacific Maritime Group',
-    siteAddress: 'The Embarcadero, Pier 39, CA',
-    assignedAgentName: 'Sofia Chen',
-    assignedAgentAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80',
-    priority: 'normal',
-    status: 'pending',
-    scheduledTime: '11:00 - 12:00',
-    estDurationMinutes: 60,
-  },
-  {
-    id: 'tsk-004',
-    orderNumber: 'WO-2026-907',
-    title: 'Presidio Air Quality Station Telemetry Firmware Patch',
-    clientName: 'City & County of SF',
-    siteAddress: 'Presidio Blvd & Lincoln, CA',
-    assignedAgentName: 'Lucas King',
-    assignedAgentAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
-    priority: 'normal',
-    status: 'pending',
-    scheduledTime: '13:00 - 14:00',
-    estDurationMinutes: 60,
-  },
-];
+const windowLabel = (a: AssignmentDto) =>
+  a.window
+    ? `${new Date(a.window.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(
+        a.window.end,
+      ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : 'Any time';
 
 export const TasksAssignments: React.FC = () => {
+  const today = useFleetStore((state) => state.today);
+  const agents = useFleetStore((state) => state.agents);
+  const locations = useFleetStore((state) => state.locations);
+  const reloadAssignments = useFleetStore((state) => state.reloadAssignments);
+
+  const [date, setDate] = useState(today);
+  const [assignments, setAssignments] = useState<AssignmentDto[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
 
-  const filteredTasks = mockTasks.filter((t) => {
-    if (activeTab === 'all') return true;
-    return t.status === activeTab;
-  });
+  const load = useCallback(async () => {
+    if (!date) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setAssignments(await assignmentsApi.listForDate(date));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [date]);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // ---- create
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState({
+    agentId: '',
+    locationId: '',
+    title: '',
+    priority: 'normal' as AssignmentPriority,
+    start: '',
+    end: '',
+  });
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const handleCreate = async () => {
+    setCreateError(null);
+    setBusy(true);
+    try {
+      const timeWindow =
+        form.start && form.end
+          ? { start: new Date(`${date}T${form.start}`).toISOString(), end: new Date(`${date}T${form.end}`).toISOString() }
+          : null;
+      await assignmentsApi.create({
+        agentId: form.agentId,
+        locationId: form.locationId,
+        scheduledDate: date,
+        priority: form.priority,
+        title: form.title.trim() || null,
+        window: timeWindow,
+      });
+      setCreateOpen(false);
+      setForm({ ...form, title: '', start: '', end: '' });
+      await load();
+      if (date === today) await reloadAssignments();
+    } catch (err) {
+      setCreateError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const changeStatus = async (assignment: AssignmentDto, status: 'in_progress' | 'completed' | 'cancelled') => {
+    let reason: string | undefined;
+    if (status === 'cancelled') {
+      reason = window.prompt('Reason for cancelling this assignment?') ?? undefined;
+      if (!reason) return;
+    }
+    try {
+      await assignmentsApi.setStatus(assignment.id, status, reason);
+      await load();
+      if (date === today) await reloadAssignments();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const filtered = assignments.filter((a) => activeTab === 'all' || a.status === activeTab);
+  const count = (status: AssignmentStatus) => assignments.filter((a) => a.status === status).length;
   const tabs = [
-    { id: 'all', label: 'All Dispatch Orders', count: mockTasks.length },
-    { id: 'in_progress', label: 'In Progress / En Route', count: mockTasks.filter(t => t.status === 'in_progress').length },
-    { id: 'pending', label: 'Pending Assignment', count: mockTasks.filter(t => t.status === 'pending').length },
-    { id: 'completed', label: 'Completed Today', count: mockTasks.filter(t => t.status === 'completed').length },
+    { id: 'all', label: 'All Assignments', count: assignments.length },
+    { id: 'in_progress', label: 'In Progress', count: count('in_progress') },
+    { id: 'pending', label: 'Pending', count: count('pending') },
+    { id: 'completed', label: 'Completed', count: count('completed') },
+    { id: 'cancelled', label: 'Cancelled', count: count('cancelled') },
   ];
 
-  const columns: Column<TaskOrder>[] = [
+  const columns: Column<AssignmentDto>[] = [
     {
-      key: 'orderNumber',
-      header: 'Order # / Title',
-      sortable: true,
+      key: 'title',
+      header: 'Assignment',
       render: (item) => (
         <div>
-          <span className="font-mono text-[10px] text-brand-teal uppercase">{item.orderNumber}</span>
-          <div className="font-bold text-white text-xs mt-0.5">{item.title}</div>
-          <div className="text-[10px] text-gray-400">{item.clientName}</div>
+          <span className="font-mono text-[10px] text-brand-teal uppercase">#{item.id.slice(-6)}</span>
+          <div className="font-bold text-white text-xs mt-0.5">{item.title ?? 'Site visit'}</div>
+          <div className="text-[10px] text-gray-400">{item.location?.name ?? '—'}</div>
         </div>
       ),
     },
     {
-      key: 'siteAddress',
-      header: 'Target Site Address',
+      key: 'location',
+      header: 'Site Address',
       render: (item) => (
         <div className="flex items-center gap-1.5 text-xs text-gray-300">
           <MapPin className="w-3.5 h-3.5 text-brand-teal shrink-0" />
-          <span className="truncate max-w-[200px]">{item.siteAddress}</span>
+          <span className="truncate max-w-[200px]">{item.location?.address ?? '—'}</span>
         </div>
       ),
     },
     {
-      key: 'assignedAgentName',
+      key: 'agent',
       header: 'Assigned Field Agent',
-      sortable: true,
       render: (item) => (
         <div className="flex items-center gap-2">
-          <img src={item.assignedAgentAvatar} alt={item.assignedAgentName} className="w-6 h-6 rounded-full object-cover border border-ops-border" />
-          <span className="text-xs text-gray-200 font-semibold">{item.assignedAgentName}</span>
+          <img src={avatarFor(item.agent?.name ?? '?')} alt="" className="w-6 h-6 rounded-full border border-ops-border" />
+          <span className="text-xs text-gray-200 font-semibold">{item.agent?.name ?? '—'}</span>
         </div>
       ),
     },
     {
-      key: 'scheduledTime',
+      key: 'window',
       header: 'Time Window',
-      sortable: true,
-      render: (item) => (
-        <div className="text-xs font-mono text-gray-300">
-          <div>{item.scheduledTime}</div>
-          <div className="text-[10px] text-gray-500">~{item.estDurationMinutes} mins</div>
-        </div>
-      ),
+      render: (item) => <div className="text-xs font-mono text-gray-300">{windowLabel(item)}</div>,
     },
     {
       key: 'priority',
       header: 'Priority',
       sortable: true,
       render: (item) => (
-        <Badge
-          variant={item.priority === 'urgent' ? 'flagged' : item.priority === 'high' ? 'idle' : 'teal'}
-          size="sm"
-        >
+        <Badge variant={item.priority === 'urgent' ? 'flagged' : item.priority === 'high' ? 'idle' : 'teal'} size="sm">
           {item.priority}
         </Badge>
       ),
     },
     {
       key: 'status',
-      header: 'Dispatch Status',
+      header: 'Status',
       sortable: true,
       render: (item) => (
-        <Badge
-          variant={item.status === 'completed' ? 'verified' : item.status === 'in_progress' ? 'moving' : 'slate'}
-          size="sm"
-        >
+        <Badge variant={STATUS_VARIANT[item.status]} size="sm">
           {item.status.replace('_', ' ')}
         </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (item) => (
+        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          {(item.status === 'pending' || item.status === 'overdue') && (
+            <Button variant="secondary" size="sm" onClick={() => void changeStatus(item, 'in_progress')}>
+              Start
+            </Button>
+          )}
+          {item.status !== 'completed' && item.status !== 'cancelled' && (
+            <>
+              <Button variant="primary" size="sm" onClick={() => void changeStatus(item, 'completed')}>
+                Complete
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => void changeStatus(item, 'cancelled')}>
+                Cancel
+              </Button>
+            </>
+          )}
+        </div>
       ),
     },
   ];
@@ -181,28 +216,120 @@ export const TasksAssignments: React.FC = () => {
             <span>Tasks & Field Work Orders</span>
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            Dispatch scheduled stops, work orders, proof requirements, and field technician assignments.
+            Site visits assigned to field agents. Agents progress their own assignments from the driver app.
           </p>
         </div>
-
-        <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
-          Create Work Order
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-ops-panel border border-ops-border rounded-xl px-3 py-1.5 text-xs">
+            <Calendar className="w-4 h-4 text-brand-teal" />
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="bg-transparent text-white focus:outline-none font-mono"
+            />
+          </div>
+          <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateOpen(true)}>
+            Create Assignment
+          </Button>
+        </div>
       </div>
 
+      <FormError message={error} />
       <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      {loading ? (
+        <div className="flex items-center gap-2 text-xs text-gray-400 p-6">
+          <Loader2 className="w-4 h-4 animate-spin text-brand-teal" /> Loading assignments…
+        </div>
+      ) : (
+        <DataTable
+          data={filtered}
+          columns={columns}
+          keyExtractor={(item) => item.id}
+          emptyMessage="No assignments for this day."
+          searchPlaceholder="Search by title, site or agent..."
+          searchFilter={(item, query) =>
+            (item.title ?? '').toLowerCase().includes(query) ||
+            (item.location?.name ?? '').toLowerCase().includes(query) ||
+            (item.agent?.name ?? '').toLowerCase().includes(query)
+          }
+        />
+      )}
 
-      <DataTable
-        data={filteredTasks}
-        columns={columns}
-        keyExtractor={(item) => item.id}
-        searchPlaceholder="Search work orders, clients, or agents..."
-        searchFilter={(item, query) =>
-          item.title.toLowerCase().includes(query) ||
-          item.orderNumber.toLowerCase().includes(query) ||
-          item.clientName.toLowerCase().includes(query)
+      <Modal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Create Assignment"
+        subtitle={`Scheduled for ${date}`}
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={busy || !form.agentId || !form.locationId}
+              onClick={() => void handleCreate()}
+            >
+              {busy ? 'Creating…' : 'Create'}
+            </Button>
+          </>
         }
-      />
+      >
+        <div className="space-y-3 text-xs">
+          <FormError message={createError} />
+          <div>
+            <label className="block text-gray-300 font-semibold mb-1">Field agent</label>
+            <select className={inputClass} value={form.agentId} onChange={(e) => setForm({ ...form, agentId: e.target.value })}>
+              <option value="">Select an agent…</option>
+              {[...agents]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({a.callsign})
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-gray-300 font-semibold mb-1">Client location</label>
+            <select className={inputClass} value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })}>
+              <option value="">Select a location…</option>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-gray-300 font-semibold mb-1">Title</label>
+            <input className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Weekly stock audit" />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-gray-300 font-semibold mb-1">Priority</label>
+              <select className={inputClass} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as AssignmentPriority })}>
+                {(['low', 'normal', 'high', 'urgent'] as const).map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-gray-300 font-semibold mb-1">Window from</label>
+              <input type="time" className={inputClass} value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-gray-300 font-semibold mb-1">Window to</label>
+              <input type="time" className={inputClass} value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

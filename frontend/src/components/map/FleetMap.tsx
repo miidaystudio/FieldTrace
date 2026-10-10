@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import L from 'leaflet';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { Agent, Geofence, RouteWaypoint, RouteStop } from '../../api/types';
 import { AgentMarker } from './AgentMarker';
@@ -41,6 +42,19 @@ const MapController: React.FC<{
   return null;
 };
 
+/** Fits the camera to the data the first time any points are available. */
+const FitToData: React.FC<{ points: [number, number][] }> = ({ points }) => {
+  const map = useMap();
+  const fitted = useRef(false);
+  useEffect(() => {
+    if (fitted.current || points.length === 0) return;
+    fitted.current = true;
+    if (points.length === 1) map.setView(points[0]!, 14);
+    else map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 15 });
+  }, [points, map]);
+  return null;
+};
+
 export const FleetMap: React.FC<FleetMapProps> = ({
   agents = [],
   geofences = [],
@@ -51,8 +65,8 @@ export const FleetMap: React.FC<FleetMapProps> = ({
   onInspectAgent,
   activeRouteWaypoints,
   activeRouteStops,
-  center = [37.7749, -122.4194],
-  zoom = 13,
+  center,
+  zoom = 12,
   interactiveLayersControl = true,
   className,
 }) => {
@@ -61,8 +75,17 @@ export const FleetMap: React.FC<FleetMapProps> = ({
   const [showRoutes, setShowRoutes] = useState(true);
   const [tileMode, setTileMode] = useState<'dark' | 'streets'>('dark');
 
+  // Only agents that have reported a GPS fix can be drawn.
+  const placedAgents = agents.filter((a) => a.hasPosition);
+  const dataPoints: [number, number][] = [
+    ...placedAgents.map((a): [number, number] => [a.currentLat, a.currentLng]),
+    ...geofences.map((g) => g.center),
+    ...(activeRouteWaypoints ?? []).map((w): [number, number] => [w.lat, w.lng]),
+  ];
+  const initialCenter: [number, number] = center ?? dataPoints[0] ?? [20.5937, 78.9629];
+
   // Determine focus target coordinate
-  const selectedAgent = agents.find((a) => a.id === selectedAgentId);
+  const selectedAgent = placedAgents.find((a) => a.id === selectedAgentId);
   const selectedGeo = geofences.find((g) => g.id === selectedGeofenceId);
   
   const targetFocusCoords: [number, number] | null = selectedAgent
@@ -71,25 +94,28 @@ export const FleetMap: React.FC<FleetMapProps> = ({
     ? selectedGeo.center
     : null;
 
-  const tileUrls = {
-    dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    streets: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  };
+  // OpenStreetMap standard tiles (no API key; attribution required). The dark look is a CSS
+  // filter on the tile pane (see index.css .map-tiles-dark), so labels stay readable.
+  const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   return (
     <div className={`relative w-full h-full min-h-[400px] rounded-xl overflow-hidden border border-ops-border ${className}`}>
       <MapContainer
-        center={center}
-        zoom={zoom}
+        center={initialCenter}
+        zoom={center || dataPoints.length > 0 ? zoom : 5}
         scrollWheelZoom={true}
         className="w-full h-full z-0"
         zoomControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          url={tileUrls[tileMode]}
+          key={tileMode}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url={tileUrl}
+          className={tileMode === 'dark' ? 'map-tiles-dark' : ''}
           maxZoom={19}
         />
+
+        {!center && <FitToData points={dataPoints} />}
 
         {/* Dynamic camera pan */}
         <MapController targetCoords={targetFocusCoords} zoom={selectedAgent ? 15 : zoom} />
@@ -113,7 +139,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
 
         {/* Agent Markers Layer */}
         {showAgents &&
-          agents.map((agent) => (
+          placedAgents.map((agent) => (
             <AgentMarker
               key={agent.id}
               agent={agent}
@@ -136,7 +162,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
               title="Toggle Live Agents"
             >
               <Navigation className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Agents ({agents.length})</span>
+              <span className="hidden md:inline">Agents ({placedAgents.length})</span>
             </button>
             <button
               onClick={() => setShowGeofences(!showGeofences)}
@@ -163,7 +189,10 @@ export const FleetMap: React.FC<FleetMapProps> = ({
       <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
         <div className="bg-ops-panel/85 backdrop-blur-md border border-ops-border px-2.5 py-1 rounded-md text-[10px] font-mono text-gray-400 shadow-lg flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-brand-teal animate-pulse" />
-          <span>SF OPS SECTOR 01 • 37.7749° N, 122.4194° W</span>
+          <span>
+            LIVE • {placedAgents.length} on map
+            {agents.length > placedAgents.length ? ` • ${agents.length - placedAgents.length} without GPS fix` : ''}
+          </span>
         </div>
       </div>
     </div>

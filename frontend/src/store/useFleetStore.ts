@@ -1,244 +1,263 @@
 import { create } from 'zustand';
-import { Agent, ProofOfVisit, Geofence, AnomalyEvent, KPIOverview, AnomalyType } from '../api/types';
-import { mockAgents, mockGeofences, mockVisits, mockAnomalies, mockKPIOverview } from '../api/mockFleetData';
+import {
+  agentsApi,
+  assignmentsApi,
+  fleetApi,
+  locationsApi,
+  type AgentDto,
+  type AgentStatusPayload,
+  type AssignmentDto,
+  type LocationDto,
+  type LocationUpdatePayload,
+} from '../api/backend';
+import { errorMessage } from '../api/client';
+import {
+  applyAgentStatus,
+  applyLocationUpdate,
+  toAgent,
+  toGeofence,
+  todayIn,
+} from '../api/adapters';
+import type { Agent, AnomalyEvent, Geofence, KPIOverview, ProofOfVisit } from '../api/types';
+
+export type LoadState = 'idle' | 'loading' | 'ready' | 'error';
+export type SocketState = 'connecting' | 'connected' | 'reconnecting' | 'offline';
 
 interface FleetState {
+  // ---- data (all from the backend)
   agents: Agent[];
+  directory: AgentDto[];
+  locations: LocationDto[];
   geofences: Geofence[];
+  assignmentsToday: AssignmentDto[];
+  today: string;
+  /** Visit verification ships in backend Phase 3. */
   visits: ProofOfVisit[];
+  /** Anomaly detection ships in backend Phase 4. */
   anomalies: AnomalyEvent[];
   kpis: KPIOverview;
-  
+
+  loadState: LoadState;
+  loadError: string | null;
+  lastSnapshotAt: string | null;
+
+  // ---- realtime connection stats
+  socketState: SocketState;
+  eventsReceived: number;
+  lastEventAt: number | null;
+  lastLatencyMs: number | null;
+
+  // ---- UI selection & search
   selectedAgentId: string | null;
   selectedVisitId: string | null;
   selectedGeofenceId: string | null;
   selectedAnomalyId: string | null;
-  
-  // Search & Filter
   statusFilter: string;
   searchQuery: string;
 
-  // Simulation Controls
-  isPlaying: boolean;
-  speedMultiplier: number;
-  packetsPerSecond: number;
-  lastTickTimestamp: number;
-  simulatedTime: Date;
+  // ---- actions
+  loadAll: (timeZone: string) => Promise<void>;
+  refreshLive: () => Promise<void>;
+  reloadLocations: () => Promise<void>;
+  reloadAssignments: () => Promise<void>;
+  handleLocationUpdate: (update: LocationUpdatePayload, latencyMs: number) => void;
+  handleAgentStatus: (update: AgentStatusPayload) => void;
+  setSocketState: (state: SocketState) => void;
+  reset: () => void;
 
-  // Actions
   setSelectedAgent: (id: string | null) => void;
   setSelectedVisit: (id: string | null) => void;
   setSelectedGeofence: (id: string | null) => void;
   setSelectedAnomaly: (id: string | null) => void;
   setStatusFilter: (status: string) => void;
   setSearchQuery: (query: string) => void;
-  
-  togglePlay: () => void;
-  setSpeedMultiplier: (mult: number) => void;
-  tickSimulation: () => void;
-  injectAnomaly: (agentId: string, anomalyType: AnomalyType) => void;
   resolveAnomaly: (anomalyId: string, resolutionNote: string) => void;
   dismissAnomaly: (anomalyId: string) => void;
   updateVisitStatus: (visitId: string, status: ProofOfVisit['status'], notes?: string) => void;
-  addGeofence: (geofence: Geofence) => void;
-  resetSimulation: () => void;
 }
 
-export const useFleetStore = create<FleetState>((set, get) => ({
-  agents: mockAgents,
-  geofences: mockGeofences,
-  visits: mockVisits,
-  anomalies: mockAnomalies,
-  kpis: mockKPIOverview,
+function computeKpis(agents: Agent[], assignments: AssignmentDto[], anomalies: AnomalyEvent[]): KPIOverview {
+  const moving = agents.filter((a) => a.status === 'moving');
+  return {
+    totalAgents: agents.length,
+    onShiftCount: agents.filter((a) => a.shiftStatus !== 'off_shift').length,
+    movingCount: moving.length,
+    idleCount: agents.filter((a) => a.status === 'idle' || a.status === 'stopped').length,
+    flaggedCount: agents.filter((a) => a.status === 'flagged').length,
+    offlineCount: agents.filter((a) => a.status === 'offline' || a.status === 'stale').length,
+    verifiedVisitsToday: null,
+    pendingVisitsToday: null,
+    assignmentsToday: assignments.length,
+    completedAssignmentsToday: assignments.filter((a) => a.status === 'completed').length,
+    openAnomalies: anomalies.filter((a) => a.status === 'open' || a.status === 'investigating').length,
+    complianceScore: null,
+    avgSpeedKmH: moving.length ? Math.round(moving.reduce((sum, a) => sum + a.speedKmH, 0) / moving.length) : null,
+    totalDistanceKmToday: null,
+  };
+}
 
-  selectedAgentId: mockAgents[0].id,
-  selectedVisitId: null,
-  selectedGeofenceId: null,
-  selectedAnomalyId: null,
-
-  statusFilter: 'all',
-  searchQuery: '',
-
-  isPlaying: true,
-  speedMultiplier: 1,
-  packetsPerSecond: 48,
-  lastTickTimestamp: Date.now(),
-  simulatedTime: new Date(),
-
-  setSelectedAgent: (id) => set({ selectedAgentId: id }),
-  setSelectedVisit: (id) => set({ selectedVisitId: id }),
-  setSelectedGeofence: (id) => set({ selectedGeofenceId: id }),
-  setSelectedAnomaly: (id) => set({ selectedAnomalyId: id }),
-  setStatusFilter: (status) => set({ statusFilter: status }),
-  setSearchQuery: (query) => set({ searchQuery: query }),
-
-  togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
-  setSpeedMultiplier: (mult) => set({ speedMultiplier: mult }),
-
-  tickSimulation: () => {
-    const { agents, isPlaying, speedMultiplier } = get();
-    if (!isPlaying) return;
-
-    const delta = (speedMultiplier * 0.0003);
-
-    const updatedAgents = agents.map((agent) => {
-      if (agent.status !== 'moving') return agent;
-
-      // Realistic drift along current heading
-      const rad = (agent.bearing * Math.PI) / 180;
-      let newLat = agent.currentLat + Math.cos(rad) * delta;
-      let newLng = agent.currentLng + Math.sin(rad) * delta * 1.3;
-
-      // Wrap-around bounds for SF Metro
-      if (newLat > 37.83) newLat = 37.73;
-      if (newLat < 37.70) newLat = 37.81;
-      if (newLng > -122.36) newLng = -122.48;
-      if (newLng < -122.51) newLng = -122.38;
-
-      // Slight natural heading adjustments
-      const headingJitter = (Math.random() - 0.5) * 12;
-      const newBearing = (agent.bearing + headingJitter + 360) % 360;
-      const speedJitter = Math.floor(Math.max(15, Math.min(65, agent.speedKmH + (Math.random() - 0.5) * 4)));
-
-      return {
-        ...agent,
-        currentLat: Number(newLat.toFixed(6)),
-        currentLng: Number(newLng.toFixed(6)),
-        bearing: Math.round(newBearing),
-        speedKmH: speedJitter,
-        lastHeartbeat: new Date().toISOString(),
-        telemetry: {
-          ...agent.telemetry,
-          speedKmH: speedJitter,
-          heading: Math.round(newBearing),
-          odometerKm: Number((agent.telemetry.odometerKm + (speedJitter / 3600) * speedMultiplier).toFixed(2)),
-          timestamp: new Date().toISOString(),
-        }
-      };
-    });
-
-    set({
-      agents: updatedAgents,
-      lastTickTimestamp: Date.now(),
-      simulatedTime: new Date(Date.now()),
-      packetsPerSecond: Math.floor(45 + Math.random() * 12 * speedMultiplier),
-    });
-  },
-
-  injectAnomaly: (agentId, anomalyType) => {
-    const { agents, anomalies, kpis } = get();
-    const targetAgent = agents.find((a) => a.id === agentId);
-    if (!targetAgent) return;
-
-    let desc = '';
-    let expl = '';
-    let metricDetails: Record<string, any> = {};
-
-    switch (anomalyType) {
-      case 'gps_spoof':
-        desc = 'Mock Location & Coordinate Jump Detected';
-        expl = `Agent jumped instantly by 2.6 km outside route bounds. Spoof provider active on device.`;
-        metricDetails = { jumpDistance: '2,620m', deltaTime: '1.1s' };
-        break;
-      case 'speed_violation':
-        desc = 'Excessive Speed Surge (104 km/h)';
-        expl = `Vehicle exceeded local street speed limit by 64 km/h for > 20 seconds.`;
-        metricDetails = { recordedSpeed: '104 km/h', speedLimit: '40 km/h' };
-        break;
-      case 'route_deviation':
-        desc = 'Off-Corridor Route Breach';
-        expl = `Unscheduled 3.1 km detour detected away from designated delivery stops.`;
-        metricDetails = { deviatedMeters: 3100 };
-        break;
-      default:
-        desc = 'Telemetry Telemetry Integrity Anomaly';
-        expl = `Sensor signal discrepancy flagged by automated heuristics.`;
+/** Current destination per agent: the in-progress assignment, else the next pending one. */
+function destinations(assignments: AssignmentDto[]): Map<string, string> {
+  const result = new Map<string, string>();
+  const ordered = [...assignments].sort((a, b) =>
+    (a.window?.start ?? a.createdAt).localeCompare(b.window?.start ?? b.createdAt),
+  );
+  for (const status of ['in_progress', 'pending', 'overdue'] as const) {
+    for (const assignment of ordered) {
+      if (assignment.status === status && assignment.location && !result.has(assignment.agentId)) {
+        result.set(assignment.agentId, assignment.location.name);
+      }
     }
+  }
+  return result;
+}
 
-    const newAnomaly: AnomalyEvent = {
-      id: `anom-${Date.now().toString().slice(-4)}`,
-      agentId: targetAgent.id,
-      agentName: targetAgent.name,
-      agentAvatar: targetAgent.avatar,
-      type: anomalyType,
-      severity: 'critical',
-      timestamp: new Date().toISOString(),
-      lat: targetAgent.currentLat,
-      lng: targetAgent.currentLng,
-      description: desc,
-      explanation: expl,
-      metricDetails,
-      status: 'open',
+const EMPTY_KPIS = computeKpis([], [], []);
+
+const initialData = {
+  agents: [] as Agent[],
+  directory: [] as AgentDto[],
+  locations: [] as LocationDto[],
+  geofences: [] as Geofence[],
+  assignmentsToday: [] as AssignmentDto[],
+  today: '',
+  visits: [] as ProofOfVisit[],
+  anomalies: [] as AnomalyEvent[],
+  kpis: EMPTY_KPIS,
+  loadState: 'idle' as LoadState,
+  loadError: null as string | null,
+  lastSnapshotAt: null as string | null,
+  socketState: 'offline' as SocketState,
+  eventsReceived: 0,
+  lastEventAt: null as number | null,
+  lastLatencyMs: null as number | null,
+};
+
+export const useFleetStore = create<FleetState>((set, get) => {
+  /** Re-derives everything that depends on agents (geofence occupancy, KPIs). */
+  const withDerived = (agents: Agent[], extra: Partial<FleetState> = {}): Partial<FleetState> => {
+    const state = { ...get(), ...extra };
+    return {
+      ...extra,
+      agents,
+      geofences: state.locations.map((location) => toGeofence(location, agents)),
+      kpis: computeKpis(agents, state.assignmentsToday, state.anomalies),
     };
+  };
 
-    const updatedAgents = agents.map((a) =>
-      a.id === agentId ? { ...a, status: 'flagged' as const, anomalyFlag: anomalyType } : a
-    );
+  const buildAgents = async (directory: AgentDto[], assignments: AssignmentDto[]) => {
+    const live = await fleetApi.live();
+    const profiles = new Map(directory.map((profile) => [profile.id, profile]));
+    const dest = destinations(assignments);
+    return {
+      agents: live.agents.map((entry) => toAgent(entry, profiles.get(entry.agentId), dest.get(entry.agentId))),
+      asOf: live.asOf,
+    };
+  };
 
-    set({
-      agents: updatedAgents,
-      anomalies: [newAnomaly, ...anomalies],
-      kpis: {
-        ...kpis,
-        flaggedCount: kpis.flaggedCount + 1,
-        openAnomalies: kpis.openAnomalies + 1,
-      },
-    });
-  },
+  return {
+    ...initialData,
+    selectedAgentId: null,
+    selectedVisitId: null,
+    selectedGeofenceId: null,
+    selectedAnomalyId: null,
+    statusFilter: 'all',
+    searchQuery: '',
 
-  resolveAnomaly: (anomalyId, note) => {
-    set((state) => ({
-      anomalies: state.anomalies.map((a) =>
-        a.id === anomalyId ? { ...a, status: 'resolved', actionTaken: note } : a
-      ),
-      kpis: {
-        ...state.kpis,
-        openAnomalies: Math.max(0, state.kpis.openAnomalies - 1),
-      },
-    }));
-  },
+    loadAll: async (timeZone) => {
+      set({ loadState: 'loading', loadError: null });
+      try {
+        const today = todayIn(timeZone);
+        const [directory, locations, assignmentsToday] = await Promise.all([
+          agentsApi.listAll(),
+          locationsApi.listAll(),
+          assignmentsApi.listForDate(today),
+        ]);
+        set({ directory, locations, assignmentsToday, today });
+        const { agents, asOf } = await buildAgents(directory, assignmentsToday);
+        set({ ...withDerived(agents), loadState: 'ready', lastSnapshotAt: asOf });
+      } catch (error) {
+        set({ loadState: 'error', loadError: errorMessage(error) });
+      }
+    },
 
-  dismissAnomaly: (anomalyId) => {
-    set((state) => ({
-      anomalies: state.anomalies.map((a) =>
-        a.id === anomalyId ? { ...a, status: 'dismissed' } : a
-      ),
-      kpis: {
-        ...state.kpis,
-        openAnomalies: Math.max(0, state.kpis.openAnomalies - 1),
-      },
-    }));
-  },
+    refreshLive: async () => {
+      try {
+        const { directory, assignmentsToday } = get();
+        const { agents, asOf } = await buildAgents(directory, assignmentsToday);
+        set({ ...withDerived(agents), lastSnapshotAt: asOf });
+      } catch (error) {
+        set({ loadError: errorMessage(error) });
+      }
+    },
 
-  updateVisitStatus: (visitId, status, notes) => {
-    set((state) => ({
-      visits: state.visits.map((v) =>
-        v.id === visitId
-          ? {
-              ...v,
-              status,
-              notes: notes || v.notes,
-              verifiedBy: 'Ops Dispatcher (Manual Review)',
-            }
-          : v
-      ),
-    }));
-  },
+    reloadLocations: async () => {
+      const locations = await locationsApi.listAll();
+      set(withDerived(get().agents, { locations }));
+    },
 
-  addGeofence: (newGeo) => {
-    set((state) => ({
-      geofences: [newGeo, ...state.geofences],
-    }));
-  },
+    reloadAssignments: async () => {
+      const today = get().today;
+      if (!today) return;
+      const assignmentsToday = await assignmentsApi.listForDate(today);
+      const dest = destinations(assignmentsToday);
+      const agents = get().agents.map((agent) => ({ ...agent, destinationName: dest.get(agent.id) }));
+      set(withDerived(agents, { assignmentsToday }));
+    },
 
-  resetSimulation: () => {
-    set({
-      agents: mockAgents,
-      anomalies: mockAnomalies,
-      visits: mockVisits,
-      kpis: mockKPIOverview,
-      isPlaying: true,
-      speedMultiplier: 1,
-    });
-  },
-}));
+    handleLocationUpdate: (update, latencyMs) => {
+      const agents = get().agents;
+      const index = agents.findIndex((agent) => agent.id === update.agentId);
+      if (index === -1) {
+        // New agent in scope (e.g. created after the snapshot) — fetch a fresh snapshot.
+        void get().refreshLive();
+        return;
+      }
+      const next = [...agents];
+      next[index] = applyLocationUpdate(agents[index]!, update);
+      set({
+        ...withDerived(next),
+        eventsReceived: get().eventsReceived + 1,
+        lastEventAt: Date.now(),
+        lastLatencyMs: latencyMs,
+      });
+    },
+
+    handleAgentStatus: (update) => {
+      const agents = get().agents;
+      const index = agents.findIndex((agent) => agent.id === update.agentId);
+      if (index === -1) {
+        void get().refreshLive();
+        return;
+      }
+      const next = [...agents];
+      next[index] = applyAgentStatus(agents[index]!, update);
+      set({ ...withDerived(next), eventsReceived: get().eventsReceived + 1, lastEventAt: Date.now() });
+    },
+
+    setSocketState: (socketState) => set({ socketState }),
+    reset: () => set({ ...initialData, selectedAgentId: null }),
+
+    setSelectedAgent: (id) => set({ selectedAgentId: id }),
+    setSelectedVisit: (id) => set({ selectedVisitId: id }),
+    setSelectedGeofence: (id) => set({ selectedGeofenceId: id }),
+    setSelectedAnomaly: (id) => set({ selectedAnomalyId: id }),
+    setStatusFilter: (status) => set({ statusFilter: status }),
+    setSearchQuery: (query) => set({ searchQuery: query }),
+
+    // Anomaly and visit review workflows are wired to the backend in Phases 3–4. Until then the
+    // lists are empty and these only update local state.
+    resolveAnomaly: (anomalyId, note) =>
+      set((state) => ({
+        anomalies: state.anomalies.map((a) => (a.id === anomalyId ? { ...a, status: 'resolved', actionTaken: note } : a)),
+      })),
+    dismissAnomaly: (anomalyId) =>
+      set((state) => ({
+        anomalies: state.anomalies.map((a) => (a.id === anomalyId ? { ...a, status: 'dismissed' } : a)),
+      })),
+    updateVisitStatus: (visitId, status, notes) =>
+      set((state) => ({
+        visits: state.visits.map((v) => (v.id === visitId ? { ...v, status, notes: notes || v.notes } : v)),
+      })),
+  };
+});
