@@ -18,6 +18,12 @@ import { healthRoutes } from './modules/health/health.routes.js';
 import { locationRoutes } from './modules/locations/location.routes.js';
 import { organizationRoutes } from './modules/organizations/organization.routes.js';
 import { teamRoutes } from './modules/teams/team.routes.js';
+import {
+  fleetRoutes,
+  shiftRoutes,
+  telemetryRoutes,
+  trackRoutes,
+} from './modules/tracking/tracking.routes.js';
 import { userRoutes } from './modules/users/user.routes.js';
 
 const modules: ModuleRouter[] = [
@@ -30,6 +36,10 @@ const modules: ModuleRouter[] = [
   locationRoutes,
   assignmentRoutes,
   auditRoutes,
+  shiftRoutes,
+  telemetryRoutes,
+  fleetRoutes,
+  trackRoutes,
 ];
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{8,64}$/;

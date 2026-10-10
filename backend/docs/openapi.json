@@ -1715,6 +1715,575 @@
         },
         "additionalProperties": false
       },
+      "CurrentShift": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/ShiftSession"
+          }
+        },
+        "required": [
+          "session"
+        ]
+      },
+      "ShiftSession": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "agentId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "shiftStatus": {
+            "type": "string",
+            "enum": [
+              "off_shift",
+              "on_shift",
+              "on_break"
+            ]
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "sampleCount": {
+            "type": "integer"
+          },
+          "lastSampleAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "device": {
+            "type": "object",
+            "properties": {
+              "platform": {
+                "type": "string",
+                "enum": [
+                  "android",
+                  "ios",
+                  "web",
+                  "simulator",
+                  "other"
+                ]
+              },
+              "appVersion": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "platform",
+              "appVersion"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "agentId",
+          "isActive",
+          "shiftStatus",
+          "startedAt",
+          "endedAt",
+          "sampleCount",
+          "lastSampleAt",
+          "device"
+        ]
+      },
+      "StartShiftRequest": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "object",
+            "properties": {
+              "platform": {
+                "type": "string",
+                "enum": [
+                  "android",
+                  "ios",
+                  "web",
+                  "simulator",
+                  "other"
+                ],
+                "default": "other"
+              },
+              "appVersion": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 40
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "ShiftBreakRequest": {
+        "type": "object",
+        "properties": {
+          "onBreak": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "onBreak"
+        ],
+        "additionalProperties": false
+      },
+      "TelemetryBatchResult": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "integer"
+          },
+          "duplicates": {
+            "type": "integer"
+          },
+          "rejected": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "seq": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "future_timestamp",
+                    "too_old",
+                    "before_shift",
+                    "duplicate_in_batch"
+                  ]
+                }
+              },
+              "required": [
+                "seq",
+                "reason"
+              ]
+            }
+          },
+          "serverTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          }
+        },
+        "required": [
+          "accepted",
+          "duplicates",
+          "rejected",
+          "serverTime"
+        ]
+      },
+      "TelemetryBatchRequest": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TelemetrySample"
+            },
+            "minItems": 1,
+            "maxItems": 50
+          }
+        },
+        "required": [
+          "sessionId",
+          "samples"
+        ],
+        "additionalProperties": false
+      },
+      "TelemetrySample": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "lat": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "lng": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "accuracyM": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "speedMps": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 150
+          },
+          "headingDeg": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 360
+          },
+          "altitudeM": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": -1000,
+            "maximum": 20000
+          },
+          "batteryPct": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100
+          },
+          "isMock": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "seq",
+          "lat",
+          "lng",
+          "accuracyM",
+          "recordedAt"
+        ],
+        "additionalProperties": false
+      },
+      "FleetLive": {
+        "type": "object",
+        "properties": {
+          "agents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LiveAgent"
+            }
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          }
+        },
+        "required": [
+          "agents",
+          "asOf"
+        ]
+      },
+      "LiveAgent": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "name": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "employeeCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "vehicle": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "bicycle",
+                  "motorcycle",
+                  "car",
+                  "van",
+                  "truck"
+                ]
+              },
+              "plate": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "plate"
+            ]
+          },
+          "shiftStatus": {
+            "type": "string",
+            "enum": [
+              "off_shift",
+              "on_shift",
+              "on_break"
+            ]
+          },
+          "connectivity": {
+            "type": "string",
+            "enum": [
+              "online",
+              "stale",
+              "offline"
+            ]
+          },
+          "motion": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "moving",
+              "idle",
+              "stopped",
+              null
+            ]
+          },
+          "position": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LatLng"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "accuracyM": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "speedMps": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "headingDeg": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "batteryPct": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "low_accuracy",
+                "mock_location"
+              ]
+            }
+          },
+          "recordedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "lastSeenAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          }
+        },
+        "required": [
+          "agentId",
+          "name",
+          "teamId",
+          "employeeCode",
+          "vehicle",
+          "shiftStatus",
+          "connectivity",
+          "motion",
+          "position",
+          "accuracyM",
+          "speedMps",
+          "headingDeg",
+          "batteryPct",
+          "flags",
+          "recordedAt",
+          "lastSeenAt"
+        ]
+      },
+      "Track": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrackPoint"
+            }
+          },
+          "pointCount": {
+            "type": "integer"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "nextFrom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "distanceM": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "agentId",
+          "from",
+          "to",
+          "points",
+          "pointCount",
+          "truncated",
+          "nextFrom",
+          "distanceM"
+        ]
+      },
+      "TrackPoint": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number"
+          },
+          "lng": {
+            "type": "number"
+          },
+          "accuracyM": {
+            "type": "number"
+          },
+          "speedMps": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "headingDeg": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "low_accuracy",
+                "mock_location"
+              ]
+            }
+          }
+        },
+        "required": [
+          "lat",
+          "lng",
+          "accuracyM",
+          "speedMps",
+          "headingDeg",
+          "recordedAt",
+          "flags"
+        ]
+      },
       "CreateUserRequest": {
         "type": "object",
         "properties": {
@@ -4025,7 +4594,7 @@
         "tags": [
           "Health"
         ],
-        "summary": "Readiness probe — dependencies (MongoDB) are reachable",
+        "summary": "Readiness probe — dependencies (MongoDB, Redis) are reachable",
         "description": "**Public**",
         "security": [],
         "responses": {
@@ -4050,11 +4619,18 @@
                           "enum": [
                             "connected"
                           ]
+                        },
+                        "redis": {
+                          "type": "string",
+                          "enum": [
+                            "connected"
+                          ]
                         }
                       },
                       "required": [
                         "status",
-                        "mongo"
+                        "mongo",
+                        "redis"
                       ]
                     }
                   },
@@ -5473,6 +6049,673 @@
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Team"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in your organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shifts/current": {
+      "get": {
+        "tags": [
+          "Shifts"
+        ],
+        "summary": "The calling agent's active shift, or null",
+        "description": "Call on app start to resume tracking with the existing `session.id`.\n\n**Roles: agent**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CurrentShift"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shifts/start": {
+      "post": {
+        "tags": [
+          "Shifts"
+        ],
+        "summary": "Start a shift (opens a tracking session)",
+        "description": "Idempotent: if a shift is already active it is returned unchanged. Use the returned `id` as `sessionId` for telemetry. Broadcasts `agent:status`.\n\n**Roles: agent**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartShiftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ShiftSession"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shifts/break": {
+      "post": {
+        "tags": [
+          "Shifts"
+        ],
+        "summary": "Start or end a break during the active shift",
+        "description": "**Roles: agent**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShiftBreakRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ShiftSession"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with existing data or an invalid state transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shifts/end": {
+      "post": {
+        "tags": [
+          "Shifts"
+        ],
+        "summary": "End the active shift (telemetry for this session is no longer accepted)",
+        "description": "**Roles: agent**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ShiftSession"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with existing data or an invalid state transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry": {
+      "post": {
+        "tags": [
+          "Telemetry"
+        ],
+        "summary": "Upload a batch of GPS samples for the active shift",
+        "description": "Send samples every 5–10 s (or queue them while offline and upload later, oldest first). Idempotent per `(sessionId, seq)`: re-sending a batch after a timeout is safe. Samples are rejected when timestamped in the future (> 2 min skew), older than 24 h, or before the shift started. `409 SHIFT_NOT_ACTIVE` means the session ended — start a new shift.\n\n**Roles: agent**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelemetryBatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TelemetryBatchResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with existing data or an invalid state transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fleet/live": {
+      "get": {
+        "tags": [
+          "Live Fleet"
+        ],
+        "summary": "Live map snapshot: latest position and status of every agent in scope",
+        "description": "Load once when the map opens and after every socket reconnect; apply `location:update` and `agent:status` events in between. Deactivated agents are excluded.\n\n**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": false,
+            "name": "teamId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "online",
+                  "stale",
+                  "offline"
+                ]
+              },
+              "minItems": 1
+            },
+            "required": false,
+            "name": "connectivity",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "off_shift",
+                  "on_shift",
+                  "on_break"
+                ]
+              },
+              "minItems": 1
+            },
+            "required": false,
+            "name": "shiftStatus",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FleetLive"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{id}/track": {
+      "get": {
+        "tags": [
+          "Live Fleet"
+        ],
+        "summary": "Raw GPS track of an agent for a time window (≤ 24 h, oldest first)",
+        "description": "Defaults to the last 2 hours. If `truncated` is true, request the next page with `from=nextFrom`. Agents may read only their own track.\n\n**Roles: admin, manager, agent**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "example": "2026-10-09T10:15:00.000Z"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "example": "2026-10-09T10:15:00.000Z"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000,
+              "default": 2000
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Track"
                     }
                   },
                   "required": [

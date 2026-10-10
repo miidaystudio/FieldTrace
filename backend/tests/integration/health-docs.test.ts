@@ -9,10 +9,10 @@ describe('health & docs', () => {
     expect(res.headers['x-request-id']).toBeTruthy();
   });
 
-  it('GET /ready reports the database connection', async () => {
+  it('GET /ready reports MongoDB and Redis connections', async () => {
     const res = await api.get('/api/v1/ready');
     expect(res.status).toBe(200);
-    expect(res.body.data).toEqual({ status: 'ready', mongo: 'connected' });
+    expect(res.body.data).toEqual({ status: 'ready', mongo: 'connected', redis: 'connected' });
   });
 
   it('echoes a well-formed incoming X-Request-Id', async () => {
@@ -43,6 +43,10 @@ describe('health & docs', () => {
       '/api/v1/locations',
       '/api/v1/assignments/{id}/status',
       '/api/v1/audit-logs',
+      '/api/v1/shifts/start',
+      '/api/v1/telemetry',
+      '/api/v1/fleet/live',
+      '/api/v1/agents/{id}/track',
     ]) {
       expect(paths).toContain(expected);
     }

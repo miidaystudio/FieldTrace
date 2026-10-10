@@ -12,16 +12,17 @@ machine-readable source of truth is **`docs/openapi.json`** (also served live at
 
 ## 1. Basics
 
-| Item           | Convention                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------------ |
-| Base URL       | `http://localhost:4000/api/v1` (dev)                                                             |
-| Format         | JSON only, `Content-Type: application/json`, max body 100 KB                                     |
-| IDs            | 24-char hex strings (MongoDB ObjectId)                                                           |
-| Timestamps     | ISO-8601 UTC strings, e.g. `2026-10-09T10:15:00.000Z`                                            |
-| Calendar days  | `YYYY-MM-DD`, interpreted in the **organization's timezone** (`organization.timezone`)           |
-| Coordinates    | Always `{ "lat": number, "lng": number }` in the API (never `[lng, lat]`)                        |
-| Unknown fields | Request bodies are **strict** — unknown keys return `400 VALIDATION_ERROR`                       |
-| Request id     | Every response has `X-Request-Id`; send your own (8–64 chars `[A-Za-z0-9._-]`) to correlate logs |
+| Item           | Convention                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------------ |
+| Base URL       | `http://localhost:4000/api/v1` (dev)                                                                         |
+| Format         | JSON only, `Content-Type: application/json`, max body 100 KB                                                 |
+| IDs            | 24-char hex strings (MongoDB ObjectId)                                                                       |
+| Timestamps     | ISO-8601 UTC strings, e.g. `2026-10-09T10:15:00.000Z`                                                        |
+| Calendar days  | `YYYY-MM-DD`, interpreted in the **organization's timezone** (`organization.timezone`)                       |
+| Coordinates    | Always `{ "lat": number, "lng": number }` in the API (never `[lng, lat]`)                                    |
+| Unknown fields | Request bodies are **strict** — unknown keys return `400 VALIDATION_ERROR`                                   |
+| Request id     | Every response has `X-Request-Id`; send your own (8–64 chars `[A-Za-z0-9._-]`) to correlate logs             |
+| Real-time      | Socket.IO on the same origin, path `/socket.io` — see [`realtime-and-tracking.md`](realtime-and-tracking.md) |
 
 ## 2. Response envelope
 
@@ -76,6 +77,7 @@ Error (always this shape):
 | 404  | `NOT_FOUND`                | Missing **or belongs to another organization / outside your team scope** |
 | 409  | `CONFLICT`                 | Duplicate (email, team name, employee code…) or business rule            |
 | 409  | `INVALID_STATE_TRANSITION` | e.g. completing a cancelled assignment                                   |
+| 409  | `SHIFT_NOT_ACTIVE`         | Driver app: no active shift / session ended → start a shift              |
 | 413  | `PAYLOAD_TOO_LARGE`        | Body > 100 KB                                                            |
 | 429  | `RATE_LIMITED`             | Back off; see `Retry-After` / `RateLimit` headers                        |
 | 503  | `SERVICE_UNAVAILABLE`      | `/ready` only                                                            |
@@ -128,26 +130,33 @@ Frontend requirements:
 | Assignments: create / edit / list                |  all  |  own teams   |                                 |
 | Assignment status change                         |   ✔   |  own teams   | own: `in_progress`, `completed` |
 | `/agents/me`, `/assignments/mine`                |       |              |                ✔                |
+| Shifts & telemetry upload                        |       |              |                ✔                |
+| Live fleet map (`/fleet/live`, socket events)    |  all  |  own teams   |           own events            |
+| Agent track history                              |  all  |  own teams   |               own               |
 | Audit logs                                       |   ✔   |              |                                 |
 
 "Own teams" = teams whose `managerIds` include the manager. Resources outside scope return 404.
 
 ## 6. Enums (single source: `backend/src/shared/enums.ts`)
 
-| Enum                                | Values                                                                     |
-| ----------------------------------- | -------------------------------------------------------------------------- |
-| `role`                              | `admin`, `manager`, `agent`                                                |
-| `userStatus`                        | `active`, `deactivated`                                                    |
-| `shiftStatus`                       | `off_shift`, `on_shift`, `on_break`                                        |
-| `connectivity` _(Phase 2, derived)_ | `online`, `idle`, `stale`, `offline`                                       |
-| `assignmentStatus`                  | `pending`, `in_progress`, `completed`, `overdue`, `cancelled`              |
-| `assignmentPriority`                | `low`, `normal`, `high`, `urgent`                                          |
-| `geofenceShape`                     | `circle`, `polygon`                                                        |
-| `vehicleType`                       | `none`, `bicycle`, `motorcycle`, `car`, `van`, `truck`                     |
-| `visitStatus` _(Phase 3)_           | `pending`, `in_progress`, `verified`, `needs_review`, `missed`, `rejected` |
-| `anomalyStatus` _(Phase 4)_         | `open`, `investigating`, `resolved`, `dismissed`                           |
-| `alertStatus` _(Phase 4)_           | `open`, `acknowledged`, `investigating`, `resolved`, `dismissed`           |
-| `severity` _(Phase 4)_              | `low`, `medium`, `high`, `critical`                                        |
+| Enum                        | Values                                                                     |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `role`                      | `admin`, `manager`, `agent`                                                |
+| `userStatus`                | `active`, `deactivated`                                                    |
+| `shiftStatus`               | `off_shift`, `on_shift`, `on_break`                                        |
+| `connectivity` _(derived)_  | `online`, `stale`, `offline`                                               |
+| `motion` _(derived)_        | `moving`, `idle`, `stopped`                                                |
+| `telemetryFlag`             | `low_accuracy`, `mock_location`                                            |
+| `telemetryRejectReason`     | `future_timestamp`, `too_old`, `before_shift`, `duplicate_in_batch`        |
+| `devicePlatform`            | `android`, `ios`, `web`, `simulator`, `other`                              |
+| `assignmentStatus`          | `pending`, `in_progress`, `completed`, `overdue`, `cancelled`              |
+| `assignmentPriority`        | `low`, `normal`, `high`, `urgent`                                          |
+| `geofenceShape`             | `circle`, `polygon`                                                        |
+| `vehicleType`               | `none`, `bicycle`, `motorcycle`, `car`, `van`, `truck`                     |
+| `visitStatus` _(Phase 3)_   | `pending`, `in_progress`, `verified`, `needs_review`, `missed`, `rejected` |
+| `anomalyStatus` _(Phase 4)_ | `open`, `investigating`, `resolved`, `dismissed`                           |
+| `alertStatus` _(Phase 4)_   | `open`, `acknowledged`, `investigating`, `resolved`, `dismissed`           |
+| `severity` _(Phase 4)_      | `low`, `medium`, `high`, `critical`                                        |
 
 ### Assignment state machine
 
@@ -172,42 +181,40 @@ overdue (system-set, Phase 3) ──► in_progress | completed | cancelled
   contain the location `position`.
 - A GPS fix inside a geofence is evidence of proximity, not proof of a visit (see Phase 3).
 
-## 8. Endpoint index (Phase 1)
+## 8. Endpoint index (Phases 1–2)
 
-| Method       | Path                                                                 | Roles                       |
-| ------------ | -------------------------------------------------------------------- | --------------------------- |
-| GET          | `/health`, `/ready`                                                  | public                      |
-| POST         | `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`     | public                      |
-| POST         | `/auth/logout-all`, `/auth/change-password` · GET `/auth/me`         | any signed-in               |
-| GET · PATCH  | `/organization`                                                      | read: all · write: admin    |
-| GET · POST   | `/users`                                                             | admin                       |
-| GET · PATCH  | `/users/:id`                                                         | admin                       |
-| POST         | `/users/:id/deactivate` · `/reactivate` · `/reset-password`          | admin                       |
-| GET          | `/teams`, `/teams/:id`                                               | admin, manager              |
-| POST · PATCH | `/teams`, `/teams/:id`, `/teams/:id/archive`, `/teams/:id/unarchive` | admin                       |
-| GET          | `/agents/me`                                                         | agent                       |
-| GET · POST   | `/agents`                                                            | admin, manager              |
-| GET · PATCH  | `/agents/:id`                                                        | admin, manager              |
-| POST         | `/agents/:id/deactivate` · `/reactivate` · `/reset-password`         | admin, manager              |
-| GET · POST   | `/locations`                                                         | admin, manager              |
-| GET · PATCH  | `/locations/:id`                                                     | admin, manager              |
-| POST         | `/locations/:id/archive` · `/unarchive`                              | admin, manager              |
-| GET          | `/assignments/mine`                                                  | agent                       |
-| GET · POST   | `/assignments`                                                       | admin, manager              |
-| GET          | `/assignments/:id`                                                   | admin, manager, agent (own) |
-| PATCH        | `/assignments/:id`                                                   | admin, manager              |
-| POST         | `/assignments/:id/status`                                            | admin, manager, agent (own) |
-| GET          | `/audit-logs`                                                        | admin                       |
+| Method       | Path                                                                     | Roles                       |
+| ------------ | ------------------------------------------------------------------------ | --------------------------- |
+| GET          | `/health`, `/ready`                                                      | public                      |
+| POST         | `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`         | public                      |
+| POST         | `/auth/logout-all`, `/auth/change-password` · GET `/auth/me`             | any signed-in               |
+| GET · PATCH  | `/organization`                                                          | read: all · write: admin    |
+| GET · POST   | `/users`                                                                 | admin                       |
+| GET · PATCH  | `/users/:id`                                                             | admin                       |
+| POST         | `/users/:id/deactivate` · `/reactivate` · `/reset-password`              | admin                       |
+| GET          | `/teams`, `/teams/:id`                                                   | admin, manager              |
+| POST · PATCH | `/teams`, `/teams/:id`, `/teams/:id/archive`, `/teams/:id/unarchive`     | admin                       |
+| GET          | `/agents/me`                                                             | agent                       |
+| GET · POST   | `/agents`                                                                | admin, manager              |
+| GET · PATCH  | `/agents/:id`                                                            | admin, manager              |
+| POST         | `/agents/:id/deactivate` · `/reactivate` · `/reset-password`             | admin, manager              |
+| GET · POST   | `/locations`                                                             | admin, manager              |
+| GET · PATCH  | `/locations/:id`                                                         | admin, manager              |
+| POST         | `/locations/:id/archive` · `/unarchive`                                  | admin, manager              |
+| GET          | `/assignments/mine`                                                      | agent                       |
+| GET · POST   | `/assignments`                                                           | admin, manager              |
+| GET          | `/assignments/:id`                                                       | admin, manager, agent (own) |
+| PATCH        | `/assignments/:id`                                                       | admin, manager              |
+| POST         | `/assignments/:id/status`                                                | admin, manager, agent (own) |
+| GET          | `/audit-logs`                                                            | admin                       |
+| GET          | `/shifts/current` · POST `/shifts/start`, `/shifts/break`, `/shifts/end` | agent                       |
+| POST         | `/telemetry`                                                             | agent                       |
+| GET          | `/fleet/live`                                                            | admin, manager              |
+| GET          | `/agents/:id/track`                                                      | admin, manager, agent (own) |
 
 Full request/response schemas: `docs/openapi.json` or `/api/docs`.
 
-## 9. Coming next (Phase 2 — needs frontend coordination)
+## 9. Real-time tracking (Phase 2)
 
-Socket.IO real-time contract (draft, not implemented yet):
-
-- Connect with `io(URL, { auth: { token: accessToken } })`; re-auth on token refresh.
-- Server-assigned rooms only: `org:{orgId}`, `org:{orgId}:team:{teamId}` — clients never join
-  arbitrary rooms.
-- Event envelope: `{ v: 1, id, type, ts, data }` — `id` lets clients de-duplicate after reconnect.
-- Events: `location:update`, `agent:status`, `geofence:entered`, `geofence:exited`,
-  `visit:updated`, `alert:created`, `assignment:updated`.
+Driver telemetry, shifts, the live map snapshot, track history and the Socket.IO event contract
+are documented in [`realtime-and-tracking.md`](realtime-and-tracking.md).

@@ -8,6 +8,7 @@
  */
 import type { Types } from 'mongoose';
 import { env, isProduction } from '../src/config/env.js';
+import { Redis } from 'ioredis';
 import { connectDatabase, disconnectDatabase } from '../src/lib/db.js';
 import { AgentProfile } from '../src/modules/agents/agent.model.js';
 import { Assignment } from '../src/modules/assignments/assignment.model.js';
@@ -17,6 +18,8 @@ import { AuthSession } from '../src/modules/auth/session.model.js';
 import { ClientLocation } from '../src/modules/locations/location.model.js';
 import { Organization } from '../src/modules/organizations/organization.model.js';
 import { Team } from '../src/modules/teams/team.model.js';
+import { LocationTelemetry } from '../src/modules/tracking/telemetry.model.js';
+import { TrackingSession } from '../src/modules/tracking/tracking-session.model.js';
 import { User } from '../src/modules/users/user.model.js';
 import type { VehicleType } from '../src/shared/enums.js';
 
@@ -45,16 +48,42 @@ function todayIn(timeZone: string): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
 }
 
+/** Deletes the org's live-map keys in Redis (best effort; Redis may not be running). */
+async function clearLiveState(orgId: string): Promise<void> {
+  const redis = new Redis(env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 1 });
+  try {
+    await redis.connect();
+    const keys: string[] = [];
+    const match = `${env.REDIS_KEY_PREFIX}org:${orgId}:*`;
+    for await (const batch of redis.scanStream({ match, count: 500 }))
+      keys.push(...(batch as string[]));
+    if (keys.length > 0) await redis.del(...keys);
+  } catch {
+    console.warn('Redis not reachable; skipped clearing live state.');
+  } finally {
+    redis.disconnect();
+  }
+}
+
 async function removeDemoOrgs(): Promise<void> {
   const orgs = await Organization.find({ slug: { $in: DEMO_SLUGS } })
     .select('_id')
     .lean();
   for (const { _id: orgId } of orgs) {
     await Promise.all(
-      [Assignment, AgentProfile, ClientLocation, Team, AuthSession, AuditLog, User].map((model) =>
-        (model as typeof User).deleteMany({ orgId }),
-      ),
+      [
+        Assignment,
+        AgentProfile,
+        ClientLocation,
+        Team,
+        AuthSession,
+        AuditLog,
+        TrackingSession,
+        User,
+      ].map((model) => (model as typeof User).deleteMany({ orgId })),
     );
+    await LocationTelemetry.deleteMany({ 'meta.orgId': orgId });
+    await clearLiveState(orgId.toString());
     await Organization.deleteOne({ _id: orgId });
   }
   if (orgs.length > 0) console.log(`Removed ${orgs.length} existing demo organization(s).`);
@@ -184,7 +213,7 @@ async function main() {
         domain: 'acme.test',
         timezone: 'Asia/Kolkata',
         teams: ['North Zone', 'South Zone'],
-        agentsPerTeam: 6,
+        agentsPerTeam: 25,
         sites: ACME_SITES,
       },
       passwordHash,

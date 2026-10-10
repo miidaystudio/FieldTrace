@@ -3,15 +3,22 @@ import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './lib/db.js';
 import { logger } from './lib/logger.js';
+import { connectRedis, disconnectRedis } from './lib/redis.js';
+import { startStatusSweeper } from './modules/tracking/status-sweeper.js';
+import { closeRealtime, initRealtime } from './realtime/io.js';
 
 async function main(): Promise<void> {
   await connectDatabase(env.MONGODB_URI);
+  await connectRedis(env.REDIS_URL, env.REDIS_KEY_PREFIX);
 
   const server = createServer(createApp());
+  const io = initRealtime(server);
+  const stopSweeper = startStatusSweeper(env.STATUS_SWEEP_INTERVAL_SEC);
+
   server.listen(env.PORT, () => {
     logger.info(
       { port: env.PORT, docs: `http://localhost:${env.PORT}/api/docs` },
-      'FieldTrace API listening',
+      'FieldTrace API listening (HTTP + Socket.IO)',
     );
   });
 
@@ -21,17 +28,18 @@ async function main(): Promise<void> {
     shuttingDown = true;
     logger.info({ signal }, 'Shutting down');
     const forceExit = setTimeout(() => process.exit(1), 10_000).unref();
-    server.close(() => {
-      disconnectDatabase()
-        .then(() => {
-          clearTimeout(forceExit);
-          process.exit(0);
-        })
-        .catch((error: unknown) => {
-          logger.error({ err: error }, 'Error during shutdown');
-          process.exit(1);
-        });
-    });
+    stopSweeper();
+    // io.close() also closes the underlying HTTP server.
+    closeRealtime(io)
+      .then(() => Promise.all([disconnectRedis(), disconnectDatabase()]))
+      .then(() => {
+        clearTimeout(forceExit);
+        process.exit(0);
+      })
+      .catch((error: unknown) => {
+        logger.error({ err: error }, 'Error during shutdown');
+        process.exit(1);
+      });
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));

@@ -6,6 +6,7 @@ import type { Actor } from '../../shared/types.js';
 import { diffFields, recordAudit } from '../audit/audit.service.js';
 import { hashPassword } from '../auth/password.js';
 import { Team } from '../teams/team.model.js';
+import { endActiveSession } from '../tracking/shift.service.js';
 import { isTeamInScope, resolveTeamScope, teamScopeFilter } from '../teams/team.scope.js';
 import { User, type UserDoc } from '../users/user.model.js';
 import { assertEmailAvailable, resetUserPassword, setUserStatus } from '../users/user.service.js';
@@ -243,11 +244,12 @@ export async function setAgentStatus(
 ): Promise<AgentDto> {
   const profile = await findAgentInScope(actor, id);
   await setUserStatus(actor, idString(profile.userId), status);
-  if (status === 'deactivated' && profile.shiftStatus !== 'off_shift') {
-    profile.shiftStatus = 'off_shift';
-    await profile.save();
+  if (status === 'deactivated') {
+    // Close any open shift so no further telemetry is accepted and the live map updates.
+    await endActiveSession(actor.orgId, profile._id, 'agent_deactivated');
   }
-  return toAgentDto(profile.toObject(), await loadAgentUser(actor, profile.userId));
+  const fresh = await AgentProfile.findOne({ _id: profile._id, orgId: actor.orgId }).lean();
+  return toAgentDto(fresh ?? profile.toObject(), await loadAgentUser(actor, profile.userId));
 }
 
 export async function resetAgentPassword(actor: Actor, id: string, temporaryPassword: string) {

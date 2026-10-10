@@ -30,17 +30,23 @@ export class TenantIsolationError extends Error {
   }
 }
 
-function hasOrgId(filter: Record<string, unknown> | undefined): boolean {
-  return filter !== undefined && filter.orgId !== undefined && filter.orgId !== null;
+function hasOrgId(filter: Record<string, unknown> | undefined, field: string): boolean {
+  return filter !== undefined && filter[field] !== undefined && filter[field] !== null;
 }
 
-export function tenantScopedPlugin(schema: Schema): void {
+export interface TenantScopedOptions {
+  /** Path holding the organization id. Defaults to `orgId` (`meta.orgId` for time-series). */
+  field?: string;
+}
+
+export function tenantScopedPlugin(schema: Schema, options: TenantScopedOptions = {}): void {
+  const field = options.field ?? 'orgId';
   schema.pre(
     [...QUERY_OPS],
     { document: false, query: true },
     function (this: Query<unknown, unknown>) {
       if (this.getOptions().skipTenantCheck === true) return;
-      if (!hasOrgId(this.getFilter())) {
+      if (!hasOrgId(this.getFilter(), field)) {
         const op = (this as unknown as { op?: string }).op ?? 'query';
         throw new TenantIsolationError(`${this.model.modelName}.${op}`);
       }
@@ -50,7 +56,7 @@ export function tenantScopedPlugin(schema: Schema): void {
   schema.pre('aggregate', function () {
     const first = this.pipeline()[0] as Record<string, unknown> | undefined;
     const match = first?.$match as Record<string, unknown> | undefined;
-    if (!hasOrgId(match)) {
+    if (!hasOrgId(match, field)) {
       throw new TenantIsolationError(`${this.model().modelName}.aggregate`);
     }
   });

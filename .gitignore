@@ -31,3 +31,6 @@ lerna-debug.log*
 *.sln
 *.sw?
 .DS_Store
+
+# Claude Code (local worktrees, settings)
+.claude/

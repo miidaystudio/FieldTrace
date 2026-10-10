@@ -27,23 +27,29 @@ export async function signAccessToken(claims: AccessTokenClaims) {
   return { accessToken: token, expiresIn: env.JWT_ACCESS_TTL_SEC };
 }
 
-export async function verifyAccessToken(token: string): Promise<AccessTokenClaims> {
+export interface VerifiedAccessToken extends AccessTokenClaims {
+  /** Expiry as epoch seconds. */
+  expiresAt: number;
+}
+
+export async function verifyAccessToken(token: string): Promise<VerifiedAccessToken> {
   try {
     const { payload } = await jwtVerify(token, secret, {
       issuer: ISSUER,
       audience: AUDIENCE,
       algorithms: ['HS256'],
     });
-    const { sub, org, role, sid } = payload;
+    const { sub, org, role, sid, exp } = payload;
     if (
       typeof sub !== 'string' ||
+      typeof exp !== 'number' ||
       typeof org !== 'string' ||
       typeof sid !== 'string' ||
       !ROLES.includes(role as Role)
     ) {
       throw unauthenticated('Malformed access token');
     }
-    return { userId: sub, orgId: org, role: role as Role, sessionId: sid };
+    return { userId: sub, orgId: org, role: role as Role, sessionId: sid, expiresAt: exp };
   } catch (error) {
     if (error instanceof joseErrors.JWTExpired) {
       throw unauthenticated('Access token expired', ErrorCode.TOKEN_EXPIRED);

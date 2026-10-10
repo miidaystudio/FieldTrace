@@ -3,6 +3,7 @@ import { idString } from '../../shared/schemas.js';
 import type { Actor } from '../../shared/types.js';
 import { diffFields, recordAudit } from '../audit/audit.service.js';
 import { Organization, type OrganizationDoc } from './organization.model.js';
+import { invalidateOrgSettings } from './settings-cache.js';
 import type { OrganizationDto, UpdateOrganizationBody } from './organization.schemas.js';
 
 export function toOrganizationDto(doc: OrganizationDoc): OrganizationDto {
@@ -55,6 +56,7 @@ export async function updateOrganization(
     org.settings = next;
   }
   await org.save();
+  invalidateOrgSettings(actor.orgId);
 
   const after = toOrganizationDto(org.toObject());
   await recordAudit(actor, {

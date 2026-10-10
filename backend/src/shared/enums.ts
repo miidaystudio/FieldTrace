@@ -11,9 +11,35 @@ export type UserStatus = (typeof USER_STATUSES)[number];
 export const SHIFT_STATUSES = ['off_shift', 'on_shift', 'on_break'] as const;
 export type ShiftStatus = (typeof SHIFT_STATUSES)[number];
 
-/** Derived from the last telemetry timestamp + org settings (Phase 2). Never stored. */
-export const CONNECTIVITY_STATUSES = ['online', 'idle', 'stale', 'offline'] as const;
+/**
+ * Freshness of an agent's location, derived from the last fix age and the organization's
+ * `staleAfterSec` / `offlineAfterSec` settings. Agents off shift are always `offline`.
+ */
+export const CONNECTIVITY_STATUSES = ['online', 'stale', 'offline'] as const;
 export type ConnectivityStatus = (typeof CONNECTIVITY_STATUSES)[number];
+
+/**
+ * Movement derived from recent fixes: `moving` (≥ 1.5 m/s or displaced), `idle` (stationary
+ * < 5 min), `stopped` (stationary ≥ 5 min). Shown separately from connectivity.
+ */
+export const MOTION_STATUSES = ['moving', 'idle', 'stopped'] as const;
+export type MotionStatus = (typeof MOTION_STATUSES)[number];
+
+/** Quality flags attached to individual GPS samples (evidence for Phase 4 anomaly rules). */
+export const TELEMETRY_FLAGS = ['low_accuracy', 'mock_location'] as const;
+export type TelemetryFlag = (typeof TELEMETRY_FLAGS)[number];
+
+/** Why a submitted GPS sample was not stored. */
+export const TELEMETRY_REJECT_REASONS = [
+  'future_timestamp',
+  'too_old',
+  'before_shift',
+  'duplicate_in_batch',
+] as const;
+export type TelemetryRejectReason = (typeof TELEMETRY_REJECT_REASONS)[number];
+
+export const DEVICE_PLATFORMS = ['android', 'ios', 'web', 'simulator', 'other'] as const;
+export type DevicePlatform = (typeof DEVICE_PLATFORMS)[number];
 
 export const ASSIGNMENT_STATUSES = [
   'pending',

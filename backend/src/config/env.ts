@@ -21,9 +21,15 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, 'must be at least 32 characters'),
   JWT_ACCESS_TTL_SEC: z.coerce.number().int().min(60).max(3600).default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  REDIS_URL: z
+    .string()
+    .regex(/^rediss?:\/\//, 'must be a redis:// or rediss:// URI')
+    .default('redis://127.0.0.1:6380'),
+  /** Prefix for every Redis key, so several apps/environments can share one Redis safely. */
+  REDIS_KEY_PREFIX: z.string().max(40).default('ft:'),
   CORS_ORIGINS: z
     .string()
-    .default('http://localhost:5173')
+    .default('http://localhost:3000,http://localhost:5173')
     .transform((value) =>
       value
         .split(',')
@@ -34,6 +40,18 @@ const envSchema = z.object({
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
   AUTH_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(10),
+
+  // --- Telemetry ingestion (Phase 2) ---
+  /** Max GPS samples accepted in one POST /telemetry request. */
+  TELEMETRY_MAX_BATCH: z.coerce.number().int().min(1).max(500).default(50),
+  /** Samples older than this (relative to server time) are rejected as `too_old`. */
+  TELEMETRY_MAX_AGE_SEC: z.coerce.number().int().min(60).default(86_400),
+  /** Tolerated device clock skew into the future before a sample is rejected. */
+  TELEMETRY_MAX_FUTURE_SKEW_SEC: z.coerce.number().int().min(0).max(3600).default(120),
+  /** Collection-level TTL for raw location history (MongoDB time-series expireAfterSeconds). */
+  TELEMETRY_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
+  /** How often agent connectivity (online/stale/offline) is re-evaluated. */
+  STATUS_SWEEP_INTERVAL_SEC: z.coerce.number().int().min(1).max(300).default(15),
 });
 
 export type Env = z.infer<typeof envSchema>;
