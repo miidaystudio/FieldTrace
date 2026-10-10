@@ -3,13 +3,16 @@
 REST API for **FieldTrace**, a real-time fleet & field-staff location auditing platform: a modular
 monolith built with Node.js, Express 5, TypeScript, MongoDB (Mongoose) and Zod.
 
-> **Status: Phase 2 (real-time tracking) complete.**
+> **Status: Phase 3 (geofencing & visits) complete.**
 > Phase 1: auth, RBAC, organization isolation, users, teams, agents, client locations with
 > geofences, assignments, audit logs. Phase 2: shifts, GPS telemetry ingestion, Redis live state,
-> time-series history, Socket.IO live map, connectivity sweeps, 50-agent simulator.
+> time-series history, Socket.IO live map, connectivity sweeps, 50-agent simulator. Phase 3:
+> geofence entry/exit, automatic + manual visits with evidence and review, overdue/missed
+> sweeps, route analysis (stops, gaps, planned vs actual).
 
 - **Frontend integration contract:** [`docs/api-conventions.md`](docs/api-conventions.md)
 - **Real-time contract (driver app + live map + Socket.IO):** [`docs/realtime-and-tracking.md`](docs/realtime-and-tracking.md)
+- **Visits & geofencing contract:** [`docs/visits-and-geofencing.md`](docs/visits-and-geofencing.md)
 - **OpenAPI spec:** [`docs/openapi.json`](docs/openapi.json) · live Swagger UI at `/api/docs`
 
 ## Quick start
@@ -166,7 +169,7 @@ AuditLog. The API's `agentId` is always the **AgentProfile id**.
 npm test
 ```
 
-Runs 138 unit and integration tests against `mongodb-memory-server` (downloads a MongoDB binary on
+Runs 153 unit and integration tests against `mongodb-memory-server` (downloads a MongoDB binary on
 first run) and the Docker Redis (`npm run redis:start`; tests use database 15 with a unique key
 prefix per file and clean up after themselves; override with `TEST_REDIS_URL`). Coverage includes: register/login/refresh rotation/reuse detection/logout, forced
 password change, immediate deactivation and role changes, **cross-organization access on every

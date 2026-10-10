@@ -5,7 +5,7 @@ import { FleetMap } from '../../components/map/FleetMap';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Play, Pause, RotateCcw, Clock, Calendar, CheckCircle2, Loader2, CircleDashed } from 'lucide-react';
-import { assignmentsApi, fleetApi } from '../../api/backend';
+import { assignmentsApi, fleetApi, routeAnalysisApi, type RouteAnalysisDto } from '../../api/backend';
 import { errorMessage } from '../../api/client';
 import { toRouteStops, toWaypoints } from '../../api/adapters';
 import type { Agent, RouteStop, RouteWaypoint } from '../../api/types';
@@ -26,6 +26,7 @@ export const RouteReplay: React.FC = () => {
   const [waypoints, setWaypoints] = useState<RouteWaypoint[]>([]);
   const [stops, setStops] = useState<RouteStop[]>([]);
   const [distanceM, setDistanceM] = useState(0);
+  const [analysis, setAnalysis] = useState<RouteAnalysisDto | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,9 +49,11 @@ export const RouteReplay: React.FC = () => {
     Promise.all([
       from < to ? fleetApi.track(selectedAgentId, from.toISOString(), to.toISOString()) : null,
       assignmentsApi.listForDate(selectedDate),
+      from < to ? routeAnalysisApi.get(selectedAgentId, from.toISOString(), to.toISOString()) : null,
     ])
-      .then(([track, assignments]) => {
+      .then(([track, assignments, routeAnalysis]) => {
         if (cancelled) return;
+        setAnalysis(routeAnalysis);
         setWaypoints(track ? toWaypoints(track.points) : []);
         setDistanceM(track?.distanceM ?? 0);
         setStops(toRouteStops(assignments.filter((a) => a.agentId === selectedAgentId)));
@@ -286,6 +289,44 @@ export const RouteReplay: React.FC = () => {
                   <div className="text-white font-bold mt-0.5">{durationMinutes} mins</div>
                 </div>
               </div>
+            </div>
+          </Card>
+
+          {/* Detected stops & gaps (backend route analysis) */}
+          <Card
+            header={
+              <div className="flex items-center justify-between w-full">
+                <span className="font-bold text-xs uppercase tracking-wider font-mono">Detected Stops & Gaps</span>
+                {analysis?.outOfOrder && (
+                  <Badge variant="idle" size="sm">
+                    out of planned order
+                  </Badge>
+                )}
+              </div>
+            }
+          >
+            <div className="space-y-2 max-h-[220px] overflow-y-auto text-xs">
+              {!analysis || (analysis.stops.length === 0 && analysis.gaps.length === 0) ? (
+                <p className="text-gray-500 italic">No stops (≥ 3 min) or GPS gaps (&gt; 2 min) in this period.</p>
+              ) : null}
+              {analysis?.stops.map((stop) => (
+                <div key={stop.start} className="p-2 bg-ops-card rounded-lg border border-ops-border flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="font-bold text-white truncate">{stop.locationName ?? 'Unplanned stop'}</div>
+                    <div className="text-[10px] text-gray-400 font-mono">
+                      {timeLabel(stop.start)} • {Math.round(stop.durationSec / 60)} min
+                    </div>
+                  </div>
+                  <Badge variant={stop.kind === 'client_site' ? 'verified' : 'idle'} size="sm">
+                    {stop.kind === 'client_site' ? 'site' : 'unplanned'}
+                  </Badge>
+                </div>
+              ))}
+              {analysis?.gaps.map((gap) => (
+                <div key={gap.from} className="p-2 bg-ops-base rounded-lg border border-ops-border text-[10px] font-mono text-gray-400">
+                  GPS gap {timeLabel(gap.from)} → {timeLabel(gap.to)} ({Math.round(gap.durationSec / 60)} min)
+                </div>
+              ))}
             </div>
           </Card>
 

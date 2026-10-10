@@ -181,40 +181,49 @@ overdue (system-set, Phase 3) ──► in_progress | completed | cancelled
   contain the location `position`.
 - A GPS fix inside a geofence is evidence of proximity, not proof of a visit (see Phase 3).
 
-## 8. Endpoint index (Phases 1–2)
+## 8. Endpoint index (Phases 1–3)
 
-| Method       | Path                                                                     | Roles                       |
-| ------------ | ------------------------------------------------------------------------ | --------------------------- |
-| GET          | `/health`, `/ready`                                                      | public                      |
-| POST         | `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`         | public                      |
-| POST         | `/auth/logout-all`, `/auth/change-password` · GET `/auth/me`             | any signed-in               |
-| GET · PATCH  | `/organization`                                                          | read: all · write: admin    |
-| GET · POST   | `/users`                                                                 | admin                       |
-| GET · PATCH  | `/users/:id`                                                             | admin                       |
-| POST         | `/users/:id/deactivate` · `/reactivate` · `/reset-password`              | admin                       |
-| GET          | `/teams`, `/teams/:id`                                                   | admin, manager              |
-| POST · PATCH | `/teams`, `/teams/:id`, `/teams/:id/archive`, `/teams/:id/unarchive`     | admin                       |
-| GET          | `/agents/me`                                                             | agent                       |
-| GET · POST   | `/agents`                                                                | admin, manager              |
-| GET · PATCH  | `/agents/:id`                                                            | admin, manager              |
-| POST         | `/agents/:id/deactivate` · `/reactivate` · `/reset-password`             | admin, manager              |
-| GET · POST   | `/locations`                                                             | admin, manager              |
-| GET · PATCH  | `/locations/:id`                                                         | admin, manager              |
-| POST         | `/locations/:id/archive` · `/unarchive`                                  | admin, manager              |
-| GET          | `/assignments/mine`                                                      | agent                       |
-| GET · POST   | `/assignments`                                                           | admin, manager              |
-| GET          | `/assignments/:id`                                                       | admin, manager, agent (own) |
-| PATCH        | `/assignments/:id`                                                       | admin, manager              |
-| POST         | `/assignments/:id/status`                                                | admin, manager, agent (own) |
-| GET          | `/audit-logs`                                                            | admin                       |
-| GET          | `/shifts/current` · POST `/shifts/start`, `/shifts/break`, `/shifts/end` | agent                       |
-| POST         | `/telemetry`                                                             | agent                       |
-| GET          | `/fleet/live`                                                            | admin, manager              |
-| GET          | `/agents/:id/track`                                                      | admin, manager, agent (own) |
+| Method       | Path                                                                     | Roles                             |
+| ------------ | ------------------------------------------------------------------------ | --------------------------------- |
+| GET          | `/health`, `/ready`                                                      | public                            |
+| POST         | `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`         | public                            |
+| POST         | `/auth/logout-all`, `/auth/change-password` · GET `/auth/me`             | any signed-in                     |
+| GET · PATCH  | `/organization`                                                          | read: all · write: admin          |
+| GET · POST   | `/users`                                                                 | admin                             |
+| GET · PATCH  | `/users/:id`                                                             | admin                             |
+| POST         | `/users/:id/deactivate` · `/reactivate` · `/reset-password`              | admin                             |
+| GET          | `/teams`, `/teams/:id`                                                   | admin, manager                    |
+| POST · PATCH | `/teams`, `/teams/:id`, `/teams/:id/archive`, `/teams/:id/unarchive`     | admin                             |
+| GET          | `/agents/me`                                                             | agent                             |
+| GET · POST   | `/agents`                                                                | admin, manager                    |
+| GET · PATCH  | `/agents/:id`                                                            | admin, manager                    |
+| POST         | `/agents/:id/deactivate` · `/reactivate` · `/reset-password`             | admin, manager                    |
+| GET · POST   | `/locations`                                                             | admin, manager                    |
+| GET · PATCH  | `/locations/:id`                                                         | admin, manager                    |
+| POST         | `/locations/:id/archive` · `/unarchive`                                  | admin, manager                    |
+| GET          | `/assignments/mine`                                                      | agent                             |
+| GET · POST   | `/assignments`                                                           | admin, manager                    |
+| GET          | `/assignments/:id`                                                       | admin, manager, agent (own)       |
+| PATCH        | `/assignments/:id`                                                       | admin, manager                    |
+| POST         | `/assignments/:id/status`                                                | admin, manager, agent (own)       |
+| GET          | `/audit-logs`                                                            | admin                             |
+| GET          | `/shifts/current` · POST `/shifts/start`, `/shifts/break`, `/shifts/end` | agent                             |
+| POST         | `/telemetry`                                                             | agent                             |
+| GET          | `/fleet/live`                                                            | admin, manager                    |
+| GET          | `/agents/:id/track`                                                      | admin, manager, agent (own)       |
+| GET          | `/visits` · `/visits/:id`                                                | admin, manager (agent: own `:id`) |
+| POST         | `/visits/:id/review`                                                     | admin, manager                    |
+| GET · POST   | `/visits/mine` · `/visits/check-in` · `/visits/:id/check-out`            | agent                             |
+| GET          | `/geofence-events`                                                       | admin, manager                    |
+| GET          | `/agents/:id/route-analysis`                                             | admin, manager, agent (own)       |
 
 Full request/response schemas: `docs/openapi.json` or `/api/docs`.
 
-## 9. Real-time tracking (Phase 2)
+## 9. Real-time tracking (Phase 2) and visits (Phase 3)
 
 Driver telemetry, shifts, the live map snapshot, track history and the Socket.IO event contract
 are documented in [`realtime-and-tracking.md`](realtime-and-tracking.md).
+
+Geofencing, visit verification rules, review workflow, route analysis and the Phase 3 socket events
+(`geofence:entered|exited`, `visit:updated`, `assignment:updated`) are documented in
+[`visits-and-geofencing.md`](visits-and-geofencing.md).

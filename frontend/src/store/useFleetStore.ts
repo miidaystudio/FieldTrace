@@ -4,7 +4,10 @@ import {
   assignmentsApi,
   fleetApi,
   locationsApi,
+  visitsApi,
   type AgentDto,
+  type GeofenceTransitionPayload,
+  type VisitDto,
   type AgentStatusPayload,
   type AssignmentDto,
   type LocationDto,
@@ -18,7 +21,7 @@ import {
   toGeofence,
   todayIn,
 } from '../api/adapters';
-import type { Agent, AnomalyEvent, Geofence, KPIOverview, ProofOfVisit } from '../api/types';
+import type { Agent, AnomalyEvent, Geofence, KPIOverview } from '../api/types';
 
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 export type SocketState = 'connecting' | 'connected' | 'reconnecting' | 'offline';
@@ -31,8 +34,10 @@ interface FleetState {
   geofences: Geofence[];
   assignmentsToday: AssignmentDto[];
   today: string;
-  /** Visit verification ships in backend Phase 3. */
-  visits: ProofOfVisit[];
+  /** Today's visits (proof-of-visit ledger), kept live via `visit:updated`. */
+  visits: VisitDto[];
+  /** Most recent geofence entries/exits seen on the socket (newest first). */
+  geofenceFeed: GeofenceTransitionPayload[];
   /** Anomaly detection ships in backend Phase 4. */
   anomalies: AnomalyEvent[];
   kpis: KPIOverview;
@@ -62,6 +67,10 @@ interface FleetState {
   reloadAssignments: () => Promise<void>;
   handleLocationUpdate: (update: LocationUpdatePayload, latencyMs: number) => void;
   handleAgentStatus: (update: AgentStatusPayload) => void;
+  handleVisitUpdated: (visit: VisitDto) => void;
+  handleAssignmentUpdated: (assignment: AssignmentDto) => void;
+  handleGeofenceTransition: (event: GeofenceTransitionPayload) => void;
+  reloadVisits: () => Promise<void>;
   setSocketState: (state: SocketState) => void;
   reset: () => void;
 
@@ -73,10 +82,14 @@ interface FleetState {
   setSearchQuery: (query: string) => void;
   resolveAnomaly: (anomalyId: string, resolutionNote: string) => void;
   dismissAnomaly: (anomalyId: string) => void;
-  updateVisitStatus: (visitId: string, status: ProofOfVisit['status'], notes?: string) => void;
 }
 
-function computeKpis(agents: Agent[], assignments: AssignmentDto[], anomalies: AnomalyEvent[]): KPIOverview {
+function computeKpis(
+  agents: Agent[],
+  assignments: AssignmentDto[],
+  anomalies: AnomalyEvent[],
+  visits: VisitDto[],
+): KPIOverview {
   const moving = agents.filter((a) => a.status === 'moving');
   return {
     totalAgents: agents.length,
@@ -85,8 +98,8 @@ function computeKpis(agents: Agent[], assignments: AssignmentDto[], anomalies: A
     idleCount: agents.filter((a) => a.status === 'idle' || a.status === 'stopped').length,
     flaggedCount: agents.filter((a) => a.status === 'flagged').length,
     offlineCount: agents.filter((a) => a.status === 'offline' || a.status === 'stale').length,
-    verifiedVisitsToday: null,
-    pendingVisitsToday: null,
+    verifiedVisitsToday: visits.filter((v) => v.status === 'verified').length,
+    pendingVisitsToday: visits.filter((v) => v.status === 'needs_review').length,
     assignmentsToday: assignments.length,
     completedAssignmentsToday: assignments.filter((a) => a.status === 'completed').length,
     openAnomalies: anomalies.filter((a) => a.status === 'open' || a.status === 'investigating').length,
@@ -112,7 +125,7 @@ function destinations(assignments: AssignmentDto[]): Map<string, string> {
   return result;
 }
 
-const EMPTY_KPIS = computeKpis([], [], []);
+const EMPTY_KPIS = computeKpis([], [], [], []);
 
 const initialData = {
   agents: [] as Agent[],
@@ -121,7 +134,8 @@ const initialData = {
   geofences: [] as Geofence[],
   assignmentsToday: [] as AssignmentDto[],
   today: '',
-  visits: [] as ProofOfVisit[],
+  visits: [] as VisitDto[],
+  geofenceFeed: [] as GeofenceTransitionPayload[],
   anomalies: [] as AnomalyEvent[],
   kpis: EMPTY_KPIS,
   loadState: 'idle' as LoadState,
@@ -141,7 +155,7 @@ export const useFleetStore = create<FleetState>((set, get) => {
       ...extra,
       agents,
       geofences: state.locations.map((location) => toGeofence(location, agents)),
-      kpis: computeKpis(agents, state.assignmentsToday, state.anomalies),
+      kpis: computeKpis(agents, state.assignmentsToday, state.anomalies, state.visits),
     };
   };
 
@@ -168,12 +182,13 @@ export const useFleetStore = create<FleetState>((set, get) => {
       set({ loadState: 'loading', loadError: null });
       try {
         const today = todayIn(timeZone);
-        const [directory, locations, assignmentsToday] = await Promise.all([
+        const [directory, locations, assignmentsToday, visits] = await Promise.all([
           agentsApi.listAll(),
           locationsApi.listAll(),
           assignmentsApi.listForDate(today),
+          visitsApi.listForDate(today),
         ]);
-        set({ directory, locations, assignmentsToday, today });
+        set({ directory, locations, assignmentsToday, visits, today });
         const { agents, asOf } = await buildAgents(directory, assignmentsToday);
         set({ ...withDerived(agents), loadState: 'ready', lastSnapshotAt: asOf });
       } catch (error) {
@@ -235,6 +250,42 @@ export const useFleetStore = create<FleetState>((set, get) => {
       set({ ...withDerived(next), eventsReceived: get().eventsReceived + 1, lastEventAt: Date.now() });
     },
 
+    reloadVisits: async () => {
+      const today = get().today;
+      if (!today) return;
+      const visits = await visitsApi.listForDate(today);
+      set(withDerived(get().agents, { visits }));
+    },
+
+    handleVisitUpdated: (visit) => {
+      if (visit.visitDate !== get().today) return;
+      const visits = get().visits.filter((v) => v.id !== visit.id);
+      set(withDerived(get().agents, { visits: [visit, ...visits], eventsReceived: get().eventsReceived + 1 }));
+    },
+
+    handleAssignmentUpdated: (assignment) => {
+      if (assignment.scheduledDate !== get().today) return;
+      const others = get().assignmentsToday.filter((a) => a.id !== assignment.id);
+      const assignmentsToday = [...others, assignment];
+      const dest = destinations(assignmentsToday);
+      const agents = get().agents.map((agent) => ({ ...agent, destinationName: dest.get(agent.id) }));
+      set(withDerived(agents, { assignmentsToday, eventsReceived: get().eventsReceived + 1 }));
+    },
+
+    handleGeofenceTransition: (event) => {
+      const agents = get().agents.map((agent) =>
+        agent.id === event.agentId
+          ? { ...agent, currentGeofenceId: event.type === 'entered' ? event.locationId : undefined }
+          : agent,
+      );
+      set({
+        ...withDerived(agents),
+        geofenceFeed: [event, ...get().geofenceFeed].slice(0, 50),
+        eventsReceived: get().eventsReceived + 1,
+        lastEventAt: Date.now(),
+      });
+    },
+
     setSocketState: (socketState) => set({ socketState }),
     reset: () => set({ ...initialData, selectedAgentId: null }),
 
@@ -245,8 +296,8 @@ export const useFleetStore = create<FleetState>((set, get) => {
     setStatusFilter: (status) => set({ statusFilter: status }),
     setSearchQuery: (query) => set({ searchQuery: query }),
 
-    // Anomaly and visit review workflows are wired to the backend in Phases 3–4. Until then the
-    // lists are empty and these only update local state.
+    // Anomaly review is wired to the backend in Phase 4. Until then the list is empty and these
+    // only update local state.
     resolveAnomaly: (anomalyId, note) =>
       set((state) => ({
         anomalies: state.anomalies.map((a) => (a.id === anomalyId ? { ...a, status: 'resolved', actionTaken: note } : a)),
@@ -254,10 +305,6 @@ export const useFleetStore = create<FleetState>((set, get) => {
     dismissAnomaly: (anomalyId) =>
       set((state) => ({
         anomalies: state.anomalies.map((a) => (a.id === anomalyId ? { ...a, status: 'dismissed' } : a)),
-      })),
-    updateVisitStatus: (visitId, status, notes) =>
-      set((state) => ({
-        visits: state.visits.map((v) => (v.id === visitId ? { ...v, status, notes: notes || v.notes } : v)),
       })),
   };
 });

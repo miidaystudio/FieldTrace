@@ -6,6 +6,7 @@ import { idString, isoOrNull } from '../../shared/schemas.js';
 import type { Actor } from '../../shared/types.js';
 import { AgentProfile } from '../agents/agent.model.js';
 import { getOrgSettings } from '../organizations/settings-cache.js';
+import { finalizePresence } from '../visits/geofence-engine.js';
 import { computeConnectivity, getLastSeen, updateConnectivityState } from './live-state.js';
 import {
   TrackingSession,
@@ -159,7 +160,11 @@ export async function endActiveSession(
     { $set: { shiftStatus: 'off_shift' } },
     { returnDocument: 'after' },
   ).lean();
-  if (profile) await publishStatusFor(orgId, profile);
+  if (profile) {
+    // A stay in progress ends with the shift (visit closed at the last fix inside).
+    await finalizePresence(orgId, profile, 'shift_ended');
+    await publishStatusFor(orgId, profile);
+  }
   return ended;
 }
 

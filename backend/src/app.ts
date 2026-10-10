@@ -25,6 +25,11 @@ import {
   trackRoutes,
 } from './modules/tracking/tracking.routes.js';
 import { userRoutes } from './modules/users/user.routes.js';
+import {
+  geofenceEventRoutes,
+  routeAnalysisRoutes,
+  visitRoutes,
+} from './modules/visits/visit.routes.js';
 
 const modules: ModuleRouter[] = [
   healthRoutes,
@@ -40,6 +45,9 @@ const modules: ModuleRouter[] = [
   telemetryRoutes,
   fleetRoutes,
   trackRoutes,
+  visitRoutes,
+  geofenceEventRoutes,
+  routeAnalysisRoutes,
 ];
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{8,64}$/;

@@ -37,7 +37,7 @@ npm run simulate -- --duration 900
 Sign in at http://localhost:3000/login with a seeded account (`admin@acme.test`,
 `manager1@acme.test` → dashboard; `agent01@swift.test` → driver app; password =
 `SEED_DEFAULT_PASSWORD`). The frontend has **no mock data**: everything comes from the API and
-Socket.IO. Pages whose backend is not built yet (visits, anomalies, historical analytics) say so.
+Socket.IO. Pages whose backend is not built yet (anomalies, historical analytics) say so.
 
 ## Roadmap
 
@@ -45,6 +45,6 @@ Socket.IO. Pages whose backend is not built yet (visits, anomalies, historical a
 | --- | --- | --- |
 | 1 — Foundation | Auth, RBAC, org isolation, users/teams/agents, locations & geofences, assignments, audit logs, OpenAPI, tests, seed | ✅ Done |
 | 2 — Real-time tracking | Shifts, telemetry ingestion, Redis live state, Socket.IO live map, time-series history, 50-agent simulator | ✅ Done |
-| 3 — Geofencing & history | Entry/exit detection, visits & check-in/out, route replay, deviation rules | ⏳ Next |
-| 4 — Anomalies & analytics | Explainable anomaly rules, alerts, KPIs, CSV export | |
+| 3 — Geofencing & history | Entry/exit detection, auto + manual visits with review, overdue/missed, route analysis | ✅ Done |
+| 4 — Anomalies & analytics | Explainable anomaly rules, alerts, KPIs, CSV export | ⏳ Next |
 | 5 — Optimization & hardening | Routing provider + stop sequencing, load tests, retention, deployment | |

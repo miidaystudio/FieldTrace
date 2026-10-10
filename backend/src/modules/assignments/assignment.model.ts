@@ -10,7 +10,8 @@ import {
 export interface StatusChange {
   status: AssignmentStatus;
   at: Date;
-  by: Types.ObjectId;
+  /** User who made the change, or null when the system did (visit verified, deadline passed). */
+  by: Types.ObjectId | null;
   reason: string | null;
 }
 
@@ -63,7 +64,7 @@ const assignmentSchema = new Schema<AssignmentDoc>(
           {
             status: { type: String, enum: ASSIGNMENT_STATUSES, required: true },
             at: { type: Date, required: true },
-            by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+            by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
             reason: { type: String, default: null, maxlength: 500 },
           },
           { _id: false },

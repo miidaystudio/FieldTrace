@@ -177,6 +177,32 @@ describe('Socket.IO realtime', () => {
     expect(statuses.every((s) => s.data.agentId === north.id)).toBe(true);
   });
 
+  it('pushes geofence and visit events to the team manager', async () => {
+    await as(org.adminToken)
+      .post('/api/v1/locations')
+      .send({
+        name: 'Instant Site',
+        position: { lat: 12.9756, lng: 77.6063 },
+        visitRules: { minDwellSec: 0 },
+      })
+      .expect(201);
+    const manager = await ready(managerToken);
+    const entered = nextEvent(manager.socket, 'geofence:entered');
+    const visit = nextEvent(manager.socket, 'visit:updated');
+    const sessionId = await startShift(north.token);
+    await sendTelemetry(north.token, sessionId, [sample({ seq: 9001 })]).expect(200);
+    expect((await entered).data).toMatchObject({
+      agentId: north.id,
+      locationName: 'Instant Site',
+      type: 'entered',
+    });
+    expect((await visit).data).toMatchObject({
+      agentId: north.id,
+      status: 'in_progress',
+      isOpen: true,
+    });
+  });
+
   it('disconnects sockets of deactivated users at the next handshake', async () => {
     const extra = await createAgent(org.adminToken, null);
     const token = await activate(extra.email);

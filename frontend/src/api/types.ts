@@ -191,8 +191,8 @@ export interface KPIOverview {
   idleCount: number;
   flaggedCount: number;
   offlineCount: number;
-  /** Visit verification arrives in Phase 3. */
   verifiedVisitsToday: number | null;
+  /** Visits waiting for a manager review (`needs_review`). */
   pendingVisitsToday: number | null;
   assignmentsToday: number;
   completedAssignmentsToday: number;

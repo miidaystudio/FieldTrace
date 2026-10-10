@@ -117,7 +117,7 @@ export const Overview: React.FC = () => {
         <StatCard
           title="Assignments Today"
           value={`${kpis.completedAssignmentsToday} / ${kpis.assignmentsToday}`}
-          subValue="completed"
+          subValue={`completed • ${kpis.verifiedVisitsToday ?? 0} verified visits • ${kpis.pendingVisitsToday ?? 0} to review`}
           variant="amber"
           icon={<CheckCircle2 className="w-5 h-5 text-amber-400" />}
         />

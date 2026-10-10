@@ -6,6 +6,7 @@ import { AgentProfile } from '../agents/agent.model.js';
 import { getOrgSettings } from '../organizations/settings-cache.js';
 import { computeConnectivity, getConnectivityStates, getLastSeen, liveKeys } from './live-state.js';
 import { TrackingSession } from './tracking-session.model.js';
+import { sweepStalePresences } from '../visits/sweepers.js';
 
 const LOCK_KEY = 'lock:status-sweep';
 
@@ -57,6 +58,7 @@ export async function runStatusSweep(nowMs = Date.now()): Promise<number> {
       });
     });
     if (updates.length > 0) await getRedis().hset(liveKeys.connectivity(orgId), ...updates);
+    await sweepStalePresences(orgId, nowMs);
   }
   return changes;
 }

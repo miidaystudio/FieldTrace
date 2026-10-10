@@ -5,6 +5,7 @@ import { connectDatabase, disconnectDatabase } from './lib/db.js';
 import { logger } from './lib/logger.js';
 import { connectRedis, disconnectRedis } from './lib/redis.js';
 import { startStatusSweeper } from './modules/tracking/status-sweeper.js';
+import { startAssignmentSweeper } from './modules/visits/sweepers.js';
 import { closeRealtime, initRealtime } from './realtime/io.js';
 
 async function main(): Promise<void> {
@@ -14,6 +15,7 @@ async function main(): Promise<void> {
   const server = createServer(createApp());
   const io = initRealtime(server);
   const stopSweeper = startStatusSweeper(env.STATUS_SWEEP_INTERVAL_SEC);
+  const stopAssignmentSweeper = startAssignmentSweeper(60);
 
   server.listen(env.PORT, () => {
     logger.info(
@@ -29,6 +31,7 @@ async function main(): Promise<void> {
     logger.info({ signal }, 'Shutting down');
     const forceExit = setTimeout(() => process.exit(1), 10_000).unref();
     stopSweeper();
+    stopAssignmentSweeper();
     // io.close() also closes the underlying HTTP server.
     closeRealtime(io)
       .then(() => Promise.all([disconnectRedis(), disconnectDatabase()]))

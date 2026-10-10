@@ -1,9 +1,12 @@
 import type {
   ConnectivityStatus,
+  GeofenceEventType,
   MotionStatus,
   ShiftStatus,
   TelemetryFlag,
 } from '../shared/enums.js';
+import type { AssignmentDto } from '../modules/assignments/assignment.schemas.js';
+import type { VisitDto } from '../modules/visits/visit.schemas.js';
 import type { LatLng } from '../shared/schemas.js';
 
 /**
@@ -44,6 +47,23 @@ export interface AgentStatusPayload {
   lastSeenAt: string | null;
 }
 
+export interface GeofenceTransitionPayload {
+  agentId: string;
+  teamId: string | null;
+  locationId: string;
+  locationName: string;
+  type: GeofenceEventType;
+  /** Device time of the fix that confirmed the transition. */
+  at: string;
+  position: LatLng;
+  accuracyM: number | null;
+  /** Exits only: time spent inside. */
+  dwellSec: number | null;
+}
+
+export type VisitUpdatedPayload = VisitDto;
+export type AssignmentUpdatedPayload = AssignmentDto;
+
 export interface SessionReadyPayload {
   userId: string;
   role: string;
@@ -57,6 +77,10 @@ export interface ServerToClientEvents {
   'location:update': (event: EventEnvelope<LocationUpdatePayload>) => void;
   'agent:status': (event: EventEnvelope<AgentStatusPayload>) => void;
   'session:ready': (event: EventEnvelope<SessionReadyPayload>) => void;
+  'geofence:entered': (event: EventEnvelope<GeofenceTransitionPayload>) => void;
+  'geofence:exited': (event: EventEnvelope<GeofenceTransitionPayload>) => void;
+  'visit:updated': (event: EventEnvelope<VisitUpdatedPayload>) => void;
+  'assignment:updated': (event: EventEnvelope<AssignmentUpdatedPayload>) => void;
   /** Sent just before the server disconnects a socket whose access token expired. */
   'auth:expired': (event: EventEnvelope<{ reason: 'token_expired' }>) => void;
 }
@@ -69,6 +93,10 @@ export const SOCKET_EVENTS = {
   AGENT_STATUS: 'agent:status',
   SESSION_READY: 'session:ready',
   AUTH_EXPIRED: 'auth:expired',
+  GEOFENCE_ENTERED: 'geofence:entered',
+  GEOFENCE_EXITED: 'geofence:exited',
+  VISIT_UPDATED: 'visit:updated',
+  ASSIGNMENT_UPDATED: 'assignment:updated',
 } as const;
 
 export const rooms = {

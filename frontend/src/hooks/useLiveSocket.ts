@@ -1,6 +1,13 @@
 import { useEffect } from 'react';
 import { io, type Socket } from 'socket.io-client';
-import type { AgentStatusPayload, EventEnvelope, LocationUpdatePayload } from '../api/backend';
+import type {
+  AgentStatusPayload,
+  AssignmentDto,
+  EventEnvelope,
+  GeofenceTransitionPayload,
+  LocationUpdatePayload,
+  VisitDto,
+} from '../api/backend';
 import { API_BASE, getAccessToken, refreshSession } from '../api/client';
 import { useFleetStore } from '../store/useFleetStore';
 
@@ -44,7 +51,10 @@ export function useLiveSocket(enabled: boolean): void {
     store().setSocketState('connecting');
     socket.on('connect', () => {
       store().setSocketState('connected');
+      // Missed events are not replayed: resync the snapshot after every (re)connect.
       void store().refreshLive();
+      void store().reloadAssignments();
+      void store().reloadVisits();
     });
     socket.on('disconnect', (reason) => {
       // `io server disconnect` = server closed it (token expiry); handled via auth:expired.
@@ -67,6 +77,20 @@ export function useLiveSocket(enabled: boolean): void {
     socket.on('agent:status', (event: EventEnvelope<AgentStatusPayload>) => {
       if (!isNew(event.id)) return;
       store().handleAgentStatus(event.data);
+    });
+    const onGeofence = (event: EventEnvelope<GeofenceTransitionPayload>) => {
+      if (!isNew(event.id)) return;
+      store().handleGeofenceTransition(event.data);
+    };
+    socket.on('geofence:entered', onGeofence);
+    socket.on('geofence:exited', onGeofence);
+    socket.on('visit:updated', (event: EventEnvelope<VisitDto>) => {
+      if (!isNew(event.id)) return;
+      store().handleVisitUpdated(event.data);
+    });
+    socket.on('assignment:updated', (event: EventEnvelope<AssignmentDto>) => {
+      if (!isNew(event.id)) return;
+      store().handleAssignmentUpdated(event.data);
     });
 
     return () => {
