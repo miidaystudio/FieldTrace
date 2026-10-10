@@ -46,7 +46,8 @@ export const assignmentDto = z
       z.object({
         status: z.enum(ASSIGNMENT_STATUSES),
         at: isoDateTime,
-        by: objectIdSchema,
+        /** null = changed by the system (visit verified, deadline passed). */
+        by: objectIdSchema.nullable(),
         reason: z.string().nullable(),
       }),
     ),

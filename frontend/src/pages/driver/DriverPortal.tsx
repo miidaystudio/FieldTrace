@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { DriverShell } from '../../components/layout/DriverShell';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
-import { PhaseNotice } from '../../components/common/PhaseNotice';
 import {
   Navigation,
   CheckCircle2,
@@ -16,10 +15,13 @@ import {
   LogOut,
   AlertTriangle,
   UploadCloud,
+  LogIn,
+  LogOut as CheckOutIcon,
+  ShieldAlert,
 } from 'lucide-react';
-import { agentsApi, assignmentsApi, type AgentDto, type AssignmentDto } from '../../api/backend';
+import { agentsApi, assignmentsApi, visitsApi, type AgentDto, type AssignmentDto, type VisitDto } from '../../api/backend';
 import { errorMessage } from '../../api/client';
-import { VEHICLE_LABELS, avatarFor, fmt, timeAgo, todayIn } from '../../api/adapters';
+import { REASON_LABELS, VEHICLE_LABELS, avatarFor, fmt, timeAgo, todayIn } from '../../api/adapters';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
 
@@ -40,12 +42,16 @@ export const DriverPortal: React.FC = () => {
   const [activeDriverTab, setActiveDriverTab] = useState<DriverTab>('my_day');
   const [profile, setProfile] = useState<AgentDto | null>(null);
   const [assignments, setAssignments] = useState<AssignmentDto[]>([]);
+  const [visits, setVisits] = useState<VisitDto[]>([]);
+  const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const today = todayIn(organization?.timezone ?? 'UTC');
 
   const loadAssignments = useCallback(async () => {
     try {
-      setAssignments(await assignmentsApi.mine(today));
+      const [mine, myVisits] = await Promise.all([assignmentsApi.mine(today), visitsApi.mine(today)]);
+      setAssignments(mine);
+      setVisits(myVisits);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -54,6 +60,9 @@ export const DriverPortal: React.FC = () => {
   useEffect(() => {
     agentsApi.me().then(setProfile).catch((err) => setError(errorMessage(err)));
     void loadAssignments();
+    // Visits are also opened/closed automatically from GPS dwell: refresh periodically.
+    const timer = setInterval(() => void loadAssignments(), 20_000);
+    return () => clearInterval(timer);
   }, [loadAssignments]);
 
   const ordered = [...assignments].sort((a, b) =>
@@ -62,14 +71,39 @@ export const DriverPortal: React.FC = () => {
   const open = ordered.filter((a) => a.status === 'in_progress' || a.status === 'pending' || a.status === 'overdue');
   const current = open.find((a) => a.status === 'in_progress') ?? open[0];
   const completed = ordered.filter((a) => a.status === 'completed');
+  const openVisit = visits.find((v) => v.isOpen) ?? null;
+  const fix = tracking.lastFix;
 
-  const changeStatus = async (assignment: AssignmentDto, status: 'in_progress' | 'completed') => {
+  const checkIn = async (assignment: AssignmentDto) => {
+    if (!fix) return;
+    setActing(true);
     setError(null);
     try {
-      await assignmentsApi.setStatus(assignment.id, status);
+      await visitsApi.checkIn({
+        assignmentId: assignment.id,
+        position: { lat: fix.lat, lng: fix.lng },
+        accuracyM: fix.accuracyM,
+      });
       await loadAssignments();
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const checkOut = async (visit: VisitDto) => {
+    if (!fix) return;
+    setActing(true);
+    setError(null);
+    try {
+      await tracking.flush(); // make sure the last fixes inside are counted as evidence
+      await visitsApi.checkOut(visit.id, { position: { lat: fix.lat, lng: fix.lng }, accuracyM: fix.accuracyM });
+      await loadAssignments();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setActing(false);
     }
   };
 
@@ -179,26 +213,39 @@ export const DriverPortal: React.FC = () => {
                   <span>Window: {windowLabel(current)}</span>
                   <span className="text-brand-teal capitalize">{current.priority}</span>
                 </div>
-                {current.status === 'in_progress' ? (
-                  <Button
-                    variant="primary"
-                    size="md"
-                    className="w-full font-bold"
-                    leftIcon={<CheckCircle2 className="w-4 h-4" />}
-                    onClick={() => void changeStatus(current, 'completed')}
-                  >
-                    Mark Completed
-                  </Button>
+                {openVisit ? (
+                  <>
+                    <p className="text-[11px] font-mono text-emerald-300">
+                      On site at {openVisit.location?.name ?? 'site'} since{' '}
+                      {openVisit.checkInAt ? new Date(openVisit.checkInAt).toLocaleTimeString() : '—'}
+                    </p>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      className="w-full font-bold"
+                      disabled={acting || !fix}
+                      leftIcon={<CheckOutIcon className="w-4 h-4" />}
+                      onClick={() => void checkOut(openVisit)}
+                    >
+                      Check Out
+                    </Button>
+                  </>
                 ) : (
                   <Button
                     variant="primary"
                     size="md"
                     className="w-full font-bold"
-                    leftIcon={<Navigation className="w-4 h-4" />}
-                    onClick={() => void changeStatus(current, 'in_progress')}
+                    disabled={acting || !fix || !tracking.onShift}
+                    leftIcon={<LogIn className="w-4 h-4" />}
+                    onClick={() => void checkIn(current)}
                   >
-                    Start This Stop
+                    Check In Here
                   </Button>
+                )}
+                {(!fix || !tracking.onShift) && (
+                  <p className="text-[10px] text-amber-300 font-mono">
+                    Start your shift and allow location access to check in.
+                  </p>
                 )}
               </div>
             ) : (
@@ -220,9 +267,9 @@ export const DriverPortal: React.FC = () => {
               </div>
             </div>
 
-            <PhaseNotice phase={3} feature="Proof-of-visit check-in (geofence, photo, QR)">
-              For now mark stops started/completed manually; automatic geofence check-in and evidence come next.
-            </PhaseNotice>
+            <p className="text-[11px] text-gray-500">
+              Visits are also recorded automatically when you stay inside a client site for a few minutes.
+            </p>
           </div>
         )}
 
@@ -278,22 +325,40 @@ export const DriverPortal: React.FC = () => {
 
         {activeDriverTab === 'history' && (
           <div className="space-y-3 animate-in fade-in">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider font-mono">Completed Today</div>
-            {completed.length === 0 && <p className="text-xs text-gray-500">Nothing completed yet today.</p>}
-            {completed.map((assignment) => {
-              const at = assignment.statusHistory.find((h) => h.status === 'completed')?.at;
-              return (
-                <div key={assignment.id} className="p-3.5 bg-ops-panel rounded-xl border border-ops-border space-y-1 text-xs font-mono">
-                  <div className="flex items-center justify-between text-emerald-400 font-bold">
-                    <span>{assignment.location?.name ?? 'Site'}</span>
-                    <Badge variant="verified" size="sm">
-                      completed
-                    </Badge>
-                  </div>
-                  <div className="text-gray-400 text-[10px]">Completed at {at ? new Date(at).toLocaleTimeString() : '—'}</div>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider font-mono">Today's Visits</div>
+            {visits.length === 0 && <p className="text-xs text-gray-500">No visits recorded yet today.</p>}
+            {visits.map((visit) => (
+              <div key={visit.id} className="p-3.5 bg-ops-panel rounded-xl border border-ops-border space-y-1 text-xs font-mono">
+                <div className="flex items-center justify-between font-bold text-white">
+                  <span>{visit.location?.name ?? 'Site'}</span>
+                  <Badge
+                    variant={
+                      visit.status === 'verified'
+                        ? 'verified'
+                        : visit.status === 'in_progress'
+                          ? 'moving'
+                          : visit.status === 'needs_review'
+                            ? 'idle'
+                            : 'flagged'
+                    }
+                    size="sm"
+                  >
+                    {visit.status.replace('_', ' ')}
+                  </Badge>
                 </div>
-              );
-            })}
+                <div className="text-gray-400 text-[10px]">
+                  {visit.checkInAt ? new Date(visit.checkInAt).toLocaleTimeString() : '—'} →{' '}
+                  {visit.isOpen ? 'on site' : visit.checkOutAt ? new Date(visit.checkOutAt).toLocaleTimeString() : '—'}
+                  {visit.durationSec !== null ? ` • ${Math.round(visit.durationSec / 60)} min` : ''}
+                </div>
+                {visit.reviewReasons.length > 0 && (
+                  <div className="text-[10px] text-amber-300 flex items-start gap-1">
+                    <ShieldAlert className="w-3 h-3 shrink-0 mt-0.5" />
+                    <span>{visit.reviewReasons.map((reason) => REASON_LABELS[reason]).join('; ')}</span>
+                  </div>
+                )}
+              </div>
+            ))}
             {tracking.session && (
               <div className="p-3.5 bg-ops-panel rounded-xl border border-ops-border text-[11px] font-mono text-gray-400 space-y-1">
                 <div>Shift started: {new Date(tracking.session.startedAt).toLocaleTimeString()}</div>

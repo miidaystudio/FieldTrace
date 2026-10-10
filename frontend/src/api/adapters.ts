@@ -14,10 +14,23 @@ import type {
   TelemetryFlag,
   TrackPointDto,
   VehicleType,
+  VisitReviewReason,
 } from './backend';
 import type { Agent, AgentStatus, Geofence, RouteStop, RouteWaypoint } from './types';
 
 const MPS_TO_KMH = 3.6;
+
+/** Plain-language explanations of why a visit needs review (shown to managers and agents). */
+export const REASON_LABELS: Record<VisitReviewReason, string> = {
+  low_accuracy: 'GPS accuracy was poor while inside',
+  mock_location: 'Device reported a mock (fake) location',
+  insufficient_dwell: 'Stayed less than the minimum dwell time',
+  signal_lost: 'GPS signal was lost while inside',
+  checkin_outside_geofence: 'Checked in outside the geofence',
+  no_gps_presence: 'No GPS fixes inside the geofence',
+  evidence_required: 'Site requires photo/QR evidence (not collected yet)',
+};
+
 
 export const VEHICLE_LABELS: Record<VehicleType, string> = {
   none: 'On foot',

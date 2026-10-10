@@ -5,6 +5,7 @@ import { idString, toGeoPoint, toLatLng, toObjectId, type LatLng } from '../../s
 import type { Actor } from '../../shared/types.js';
 import { diffFields, recordAudit } from '../audit/audit.service.js';
 import { Organization } from '../organizations/organization.model.js';
+import { invalidateOrgGeofences } from '../visits/geofence-index.js';
 import { ClientLocation, type ClientLocationDoc, type Geofence } from './location.model.js';
 import type {
   CreateLocationBody,
@@ -125,6 +126,7 @@ export async function createLocation(actor: Actor, body: CreateLocationBody): Pr
     externalRef: body.externalRef ?? null,
     createdBy: actor.userId,
   });
+  invalidateOrgGeofences(actor.orgId);
   await recordAudit(actor, {
     action: 'location.created',
     entityType: 'location',
@@ -157,6 +159,7 @@ export async function updateLocation(
   if (body.externalRef !== undefined) location.externalRef = body.externalRef;
   await location.save();
 
+  invalidateOrgGeofences(actor.orgId);
   const after = toLocationDto(location.toObject());
   const changes = diffFields(before, after, [
     'name',
@@ -189,6 +192,7 @@ export async function setLocationArchived(
   if (location.isArchived !== isArchived) {
     location.isArchived = isArchived;
     await location.save();
+    invalidateOrgGeofences(actor.orgId);
     await recordAudit(actor, {
       action: isArchived ? 'location.archived' : 'location.unarchived',
       entityType: 'location',

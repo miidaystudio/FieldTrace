@@ -535,7 +535,10 @@
                   "example": "2026-10-09T10:15:00.000Z"
                 },
                 "by": {
-                  "type": "string",
+                  "type": [
+                    "string",
+                    "null"
+                  ],
                   "pattern": "^[a-f\\d]{24}$/i",
                   "example": "6704f1c2a1b2c3d4e5f60718"
                 },
@@ -2338,6 +2341,666 @@
           }
         },
         "additionalProperties": false
+      },
+      "Visit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "agentId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "agent": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-f\\d]{24}$/i",
+                "example": "6704f1c2a1b2c3d4e5f60718"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          },
+          "teamId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "locationId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "location": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-f\\d]{24}$/i",
+                "example": "6704f1c2a1b2c3d4e5f60718"
+              },
+              "name": {
+                "type": "string"
+              },
+              "address": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "position": {
+                "$ref": "#/components/schemas/LatLng"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "address",
+              "position"
+            ]
+          },
+          "assignmentId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "manual"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "verified",
+              "needs_review",
+              "missed",
+              "rejected"
+            ]
+          },
+          "isOpen": {
+            "type": "boolean"
+          },
+          "visitDate": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-09"
+          },
+          "checkInAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "checkOutAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "durationSec": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "arrival": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "windowStart": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2026-10-09T10:15:00.000Z"
+              },
+              "windowEnd": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2026-10-09T10:15:00.000Z"
+              },
+              "delaySec": {
+                "type": "integer"
+              },
+              "onTime": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "windowStart",
+              "windowEnd",
+              "delaySec",
+              "onTime"
+            ]
+          },
+          "signals": {
+            "type": "object",
+            "properties": {
+              "sampleCount": {
+                "type": "integer"
+              },
+              "avgAccuracyM": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "maxAccuracyM": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "mockLocation": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "sampleCount",
+              "avgAccuracyM",
+              "maxAccuracyM",
+              "mockLocation"
+            ]
+          },
+          "reviewReasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "low_accuracy",
+                "mock_location",
+                "insufficient_dwell",
+                "signal_lost",
+                "checkin_outside_geofence",
+                "no_gps_presence",
+                "evidence_required"
+              ]
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "geofence_entry",
+                    "geofence_exit",
+                    "manual_checkin",
+                    "manual_checkout"
+                  ]
+                },
+                "at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-10-09T10:15:00.000Z"
+                },
+                "position": {
+                  "$ref": "#/components/schemas/LatLng"
+                },
+                "accuracyM": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "insideGeofence": {
+                  "type": "boolean"
+                },
+                "distanceM": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "type",
+                "at",
+                "position",
+                "accuracyM",
+                "insideGeofence",
+                "distanceM"
+              ]
+            }
+          },
+          "review": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "by": {
+                "type": "string",
+                "pattern": "^[a-f\\d]{24}$/i",
+                "example": "6704f1c2a1b2c3d4e5f60718"
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2026-10-09T10:15:00.000Z"
+              },
+              "decision": {
+                "type": "string",
+                "enum": [
+                  "verified",
+                  "rejected"
+                ]
+              },
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "by",
+              "at",
+              "decision",
+              "note"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "agentId",
+          "agent",
+          "teamId",
+          "locationId",
+          "location",
+          "assignmentId",
+          "method",
+          "status",
+          "isOpen",
+          "visitDate",
+          "checkInAt",
+          "checkOutAt",
+          "durationSec",
+          "arrival",
+          "signals",
+          "reviewReasons",
+          "evidence",
+          "review",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "VisitCheckInRequest": {
+        "type": "object",
+        "properties": {
+          "assignmentId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "locationId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "position": {
+            "$ref": "#/components/schemas/LatLng"
+          },
+          "accuracyM": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000
+          }
+        },
+        "required": [
+          "position",
+          "accuracyM"
+        ],
+        "additionalProperties": false
+      },
+      "VisitCheckOutRequest": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "$ref": "#/components/schemas/LatLng"
+          },
+          "accuracyM": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000
+          }
+        },
+        "required": [
+          "position",
+          "accuracyM"
+        ],
+        "additionalProperties": false
+      },
+      "VisitReviewRequest": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "rejected"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "additionalProperties": false
+      },
+      "GeofenceEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "agentId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "teamId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "locationId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "entered",
+              "exited"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "position": {
+            "$ref": "#/components/schemas/LatLng"
+          },
+          "accuracyM": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "dwellSec": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "agentId",
+          "teamId",
+          "locationId",
+          "type",
+          "at",
+          "position",
+          "accuracyM",
+          "dwellSec"
+        ]
+      },
+      "RouteAnalysis": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "pointCount": {
+            "type": "integer"
+          },
+          "distanceM": {
+            "type": "number"
+          },
+          "movingTimeSec": {
+            "type": "integer"
+          },
+          "stoppedTimeSec": {
+            "type": "integer"
+          },
+          "stops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-10-09T10:15:00.000Z"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-10-09T10:15:00.000Z"
+                },
+                "durationSec": {
+                  "type": "integer"
+                },
+                "position": {
+                  "$ref": "#/components/schemas/LatLng"
+                },
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^[a-f\\d]{24}$/i",
+                  "example": "6704f1c2a1b2c3d4e5f60718"
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "client_site",
+                    "unplanned"
+                  ]
+                }
+              },
+              "required": [
+                "start",
+                "end",
+                "durationSec",
+                "position",
+                "locationId",
+                "locationName",
+                "kind"
+              ]
+            }
+          },
+          "gaps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-10-09T10:15:00.000Z"
+                },
+                "to": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-10-09T10:15:00.000Z"
+                },
+                "durationSec": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "from",
+                "to",
+                "durationSec"
+              ]
+            }
+          },
+          "plan": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "assignmentId": {
+                  "type": "string",
+                  "pattern": "^[a-f\\d]{24}$/i",
+                  "example": "6704f1c2a1b2c3d4e5f60718"
+                },
+                "locationId": {
+                  "type": "string",
+                  "pattern": "^[a-f\\d]{24}$/i",
+                  "example": "6704f1c2a1b2c3d4e5f60718"
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "plannedOrder": {
+                  "type": "integer"
+                },
+                "actualOrder": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "visitId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^[a-f\\d]{24}$/i",
+                  "example": "6704f1c2a1b2c3d4e5f60718"
+                },
+                "visitStatus": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "pending",
+                    "in_progress",
+                    "verified",
+                    "needs_review",
+                    "missed",
+                    "rejected",
+                    null
+                  ]
+                },
+                "assignmentStatus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "assignmentId",
+                "locationId",
+                "locationName",
+                "plannedOrder",
+                "actualOrder",
+                "visitId",
+                "visitStatus",
+                "assignmentStatus"
+              ]
+            }
+          },
+          "outOfOrder": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "agentId",
+          "from",
+          "to",
+          "pointCount",
+          "distanceM",
+          "movingTimeSec",
+          "stoppedTimeSec",
+          "stops",
+          "gaps",
+          "plan",
+          "outOfOrder"
+        ]
       }
     },
     "parameters": {}
@@ -7484,6 +8147,1018 @@
         "responses": {
           "204": {
             "description": "No content"
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in your organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/mine": {
+      "get": {
+        "tags": [
+          "Visits"
+        ],
+        "summary": "The calling agent's visits (driver app)",
+        "description": "**Roles: agent**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-10-09"
+            },
+            "required": false,
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "checkInAt",
+                "createdAt",
+                "-checkInAt",
+                "-createdAt"
+              ],
+              "default": "-checkInAt"
+            },
+            "required": false,
+            "name": "sort",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Visit"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/check-in": {
+      "post": {
+        "tags": [
+          "Visits"
+        ],
+        "summary": "Manual check-in at a client location (driver app)",
+        "description": "Send the device position with the check-in. A check-in outside the geofence is accepted but flagged `checkin_outside_geofence` for review. Idempotent while the same visit is open; returns 409 if a visit at another location is still open.\n\n**Roles: agent**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitCheckInRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Visit"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with existing data or an invalid state transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits": {
+      "get": {
+        "tags": [
+          "Visits"
+        ],
+        "summary": "List visits (proof-of-visit ledger)",
+        "description": "Admins see all; managers see visits of their teams. Filter by day (`date`) or range.\n\n**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-10-09"
+            },
+            "required": false,
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-10-09"
+            },
+            "required": false,
+            "name": "dateFrom",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-10-09"
+            },
+            "required": false,
+            "name": "dateTo",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "in_progress",
+                  "verified",
+                  "needs_review",
+                  "missed",
+                  "rejected"
+                ]
+              },
+              "minItems": 1
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": false,
+            "name": "agentId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": false,
+            "name": "assignmentId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "checkInAt",
+                "visitDate",
+                "createdAt",
+                "-checkInAt",
+                "-visitDate",
+                "-createdAt"
+              ],
+              "default": "-checkInAt"
+            },
+            "required": false,
+            "name": "sort",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Visit"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{id}": {
+      "get": {
+        "tags": [
+          "Visits"
+        ],
+        "summary": "Get a visit with its evidence",
+        "description": "**Roles: admin, manager, agent**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Visit"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in your organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{id}/check-out": {
+      "post": {
+        "tags": [
+          "Visits"
+        ],
+        "summary": "Manual check-out of the open visit (driver app)",
+        "description": "**Roles: agent**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitCheckOutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Visit"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in your organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with existing data or an invalid state transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{id}/review": {
+      "post": {
+        "tags": [
+          "Visits"
+        ],
+        "summary": "Verify or reject a closed visit (audited)",
+        "description": "`note` is required when rejecting. Verifying completes the linked assignment.\n\n**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Visit"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in your organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with existing data or an invalid state transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/geofence-events": {
+      "get": {
+        "tags": [
+          "Visits"
+        ],
+        "summary": "Geofence entry/exit events (newest first)",
+        "description": "**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": false,
+            "name": "agentId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "example": "2026-10-09T10:15:00.000Z"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "example": "2026-10-09T10:15:00.000Z"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GeofenceEvent"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{id}/route-analysis": {
+      "get": {
+        "tags": [
+          "Live Fleet"
+        ],
+        "summary": "Stops, GPS gaps and planned-vs-actual sequence for a time window (≤ 24 h)",
+        "description": "Defaults to the last 12 hours. Stops are stays ≥ 3 min within 50 m; `unplanned` stops are not at any client location (a deviation signal, not proof of misconduct). Agents may read their own.\n\n**Roles: admin, manager, agent**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "example": "2026-10-09T10:15:00.000Z"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "example": "2026-10-09T10:15:00.000Z"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RouteAnalysis"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
           },
           "400": {
             "description": "Validation error",

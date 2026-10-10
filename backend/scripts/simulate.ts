@@ -22,6 +22,7 @@ import { hashRefreshToken, signAccessToken } from '../src/modules/auth/tokens.js
 import { ClientLocation } from '../src/modules/locations/location.model.js';
 import { Organization } from '../src/modules/organizations/organization.model.js';
 import { User } from '../src/modules/users/user.model.js';
+import { Assignment } from '../src/modules/assignments/assignment.model.js';
 import { haversineMeters } from '../src/shared/geo.js';
 import type { LatLng } from '../src/shared/schemas.js';
 
@@ -39,7 +40,8 @@ const INTERVAL_SEC = Number(args.interval);
 const DURATION_SEC = Number(args.duration);
 const API = `${args.api}/api/v1`;
 const TOKEN_REFRESH_MS = 10 * 60_000;
-const DWELL_SEC = 60;
+/** Longer than the default minimum dwell (120 s) so stops at client sites become visits. */
+const DWELL_SEC = 150;
 
 interface SimAgent {
   agentId: string;
@@ -206,9 +208,20 @@ async function main(): Promise<void> {
     console.warn(`Only ${selected.length} active agents available (asked for ${AGENT_COUNT}).`);
   }
 
+  // Agents drive to their own assignments of today first, then to random sites.
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: org.timezone }).format(new Date());
+  const todays = await Assignment.find({ orgId: org._id, scheduledDate: today })
+    .select('agentId locationId')
+    .lean();
+  const stopById = new Map(locations.map((l, i) => [l._id.toString(), stops[i]!]));
+
   const agents: SimAgent[] = [];
   for (const profile of selected) {
-    const route = shuffle(stops).slice(0, Math.min(4, stops.length));
+    const planned = todays
+      .filter((a) => a.agentId.toString() === profile._id.toString())
+      .map((a) => stopById.get(a.locationId.toString()))
+      .filter((stop): stop is LatLng => Boolean(stop));
+    const route = [...planned, ...shuffle(stops)].slice(0, Math.max(3, planned.length + 1));
     const agent: SimAgent = {
       agentId: profile._id.toString(),
       userId: profile.userId,
@@ -218,9 +231,9 @@ async function main(): Promise<void> {
       tokenIssuedAt: Date.now(),
       sessionId: '',
       seq: 0,
-      position: jitter(route[0]!, 300),
+      position: jitter(route[0]!, 1500), // start ~1.5 km away, drive to the first stop
       route,
-      target: 1 % route.length,
+      target: 0,
       speedMps: 8 + Math.random() * 6,
       dwellUntil: 0,
       battery: 60 + Math.random() * 40,

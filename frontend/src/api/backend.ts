@@ -15,6 +15,15 @@ export type TelemetryFlag = 'low_accuracy' | 'mock_location';
 export type VehicleType = 'none' | 'bicycle' | 'motorcycle' | 'car' | 'van' | 'truck';
 export type AssignmentStatus = 'pending' | 'in_progress' | 'completed' | 'overdue' | 'cancelled';
 export type AssignmentPriority = 'low' | 'normal' | 'high' | 'urgent';
+export type VisitStatus = 'pending' | 'in_progress' | 'verified' | 'needs_review' | 'missed' | 'rejected';
+export type VisitReviewReason =
+  | 'low_accuracy'
+  | 'mock_location'
+  | 'insufficient_dwell'
+  | 'signal_lost'
+  | 'checkin_outside_geofence'
+  | 'no_gps_presence'
+  | 'evidence_required';
 
 export interface LatLng {
   lat: number;
@@ -118,7 +127,8 @@ export interface AssignmentDto {
   status: AssignmentStatus;
   title: string | null;
   notes: string | null;
-  statusHistory: { status: AssignmentStatus; at: string; by: string; reason: string | null }[];
+  /** `by` is null when the system made the change (visit verified, deadline passed). */
+  statusHistory: { status: AssignmentStatus; at: string; by: string | null; reason: string | null }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -235,6 +245,80 @@ export interface AgentStatusPayload {
   shiftStatus: ShiftStatus;
   connectivity: Connectivity;
   lastSeenAt: string | null;
+}
+
+export interface VisitDto {
+  id: string;
+  agentId: string;
+  agent: { id: string; name: string } | null;
+  teamId: string | null;
+  locationId: string;
+  location: { id: string; name: string; address: string | null; position: LatLng } | null;
+  assignmentId: string | null;
+  method: 'auto' | 'manual';
+  status: VisitStatus;
+  isOpen: boolean;
+  visitDate: string;
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  durationSec: number | null;
+  arrival: { windowStart: string; windowEnd: string; delaySec: number; onTime: boolean } | null;
+  signals: { sampleCount: number; avgAccuracyM: number | null; maxAccuracyM: number | null; mockLocation: boolean };
+  reviewReasons: VisitReviewReason[];
+  evidence: {
+    type: 'geofence_entry' | 'geofence_exit' | 'manual_checkin' | 'manual_checkout';
+    at: string;
+    position: LatLng;
+    accuracyM: number | null;
+    insideGeofence: boolean;
+    distanceM: number | null;
+  }[];
+  review: { by: string; at: string; decision: 'verified' | 'rejected'; note: string | null } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GeofenceTransitionPayload {
+  agentId: string;
+  teamId: string | null;
+  locationId: string;
+  locationName: string;
+  type: 'entered' | 'exited';
+  at: string;
+  position: LatLng;
+  accuracyM: number | null;
+  dwellSec: number | null;
+}
+
+export interface RouteAnalysisDto {
+  agentId: string;
+  from: string;
+  to: string;
+  pointCount: number;
+  distanceM: number;
+  movingTimeSec: number;
+  stoppedTimeSec: number;
+  stops: {
+    start: string;
+    end: string;
+    durationSec: number;
+    position: LatLng;
+    locationId: string | null;
+    locationName: string | null;
+    kind: 'client_site' | 'unplanned';
+  }[];
+  gaps: { from: string; to: string; durationSec: number }[];
+  plan: {
+    assignmentId: string;
+    locationId: string;
+    locationName: string | null;
+    plannedOrder: number;
+    actualOrder: number | null;
+    visitId: string | null;
+    visitStatus: VisitStatus | null;
+    assignmentStatus: string;
+  }[];
+  outOfOrder: boolean;
 }
 
 // ------------------------------------------------------------------ endpoints
@@ -354,4 +438,21 @@ export const shiftsApi = {
 export const telemetryApi = {
   send: (sessionId: string, samples: TelemetrySampleInput[]) =>
     api<TelemetryResultDto>('/telemetry', { method: 'POST', body: { sessionId, samples } }),
+};
+
+export const visitsApi = {
+  listForDate: (date: string) => apiAll<VisitDto>('/visits', { date, sort: '-checkInAt' }),
+  mine: (date?: string) =>
+    apiPage<VisitDto>('/visits/mine', { query: { date, limit: 100 } }).then((r) => r.data),
+  checkIn: (body: { assignmentId?: string; locationId?: string; position: LatLng; accuracyM: number }) =>
+    api<VisitDto>('/visits/check-in', { method: 'POST', body }),
+  checkOut: (id: string, body: { position: LatLng; accuracyM: number }) =>
+    api<VisitDto>(`/visits/${id}/check-out`, { method: 'POST', body }),
+  review: (id: string, decision: 'verified' | 'rejected', note?: string) =>
+    api<VisitDto>(`/visits/${id}/review`, { method: 'POST', body: { decision, note: note || undefined } }),
+};
+
+export const routeAnalysisApi = {
+  get: (agentId: string, from: string, to: string) =>
+    api<RouteAnalysisDto>(`/agents/${agentId}/route-analysis`, { query: { from, to } }),
 };

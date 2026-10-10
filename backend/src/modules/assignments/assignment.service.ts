@@ -3,6 +3,8 @@ import { badRequest, invalidTransition, notFound } from '../../lib/errors.js';
 import { pageMeta, skipFor, toMongoSort } from '../../lib/pagination.js';
 import { idString, isoOrNull, toLatLng, toObjectId } from '../../shared/schemas.js';
 import type { Actor } from '../../shared/types.js';
+import { publishAssignmentUpdated } from '../../realtime/publisher.js';
+import type { AssignmentStatus } from '../../shared/enums.js';
 import { AgentProfile } from '../agents/agent.model.js';
 import { findAgentInScope } from '../agents/agent.service.js';
 import { diffFields, recordAudit } from '../audit/audit.service.js';
@@ -48,7 +50,7 @@ function toAssignmentDto(
     statusHistory: doc.statusHistory.map((change) => ({
       status: change.status,
       at: change.at.toISOString(),
-      by: idString(change.by),
+      by: change.by ? idString(change.by) : null,
       reason: change.reason,
     })),
     createdBy: idString(doc.createdBy),
@@ -58,7 +60,10 @@ function toAssignmentDto(
 }
 
 /** Batch-loads agent names and location summaries for a page of assignments (2–3 queries). */
-async function toAssignmentDtos(actor: Actor, docs: AssignmentDoc[]): Promise<AssignmentDto[]> {
+export async function toAssignmentDtos(
+  actor: Pick<Actor, 'orgId'>,
+  docs: AssignmentDoc[],
+): Promise<AssignmentDto[]> {
   const agentIds = [...new Set(docs.map((d) => idString(d.agentId)))];
   const locationIds = [...new Set(docs.map((d) => idString(d.locationId)))];
 
@@ -95,8 +100,55 @@ async function toAssignmentDtos(actor: Actor, docs: AssignmentDoc[]): Promise<As
   return docs.map((doc) => toAssignmentDto(doc, agents, locations));
 }
 
-const toDto = async (actor: Actor, doc: AssignmentDoc) =>
+const toDto = async (actor: Pick<Actor, 'orgId'>, doc: AssignmentDoc) =>
   (await toAssignmentDtos(actor, [doc]))[0]!;
+
+/** Builds the DTO and broadcasts `assignment:updated` to everyone allowed to see it. */
+async function toDtoAndPublish(orgId: string, doc: AssignmentDoc): Promise<AssignmentDto> {
+  const dto = await toDto({ orgId }, doc);
+  publishAssignmentUpdated(orgId, dto);
+  return dto;
+}
+
+/**
+ * Status change made by the system (visit verified, deadline passed) rather than a user.
+ * Only applies when the assignment is still in one of `from`; returns null otherwise.
+ */
+export async function systemTransition(
+  orgId: string,
+  assignmentId: Types.ObjectId | string,
+  from: readonly AssignmentStatus[],
+  to: AssignmentStatus,
+  reason: string,
+): Promise<AssignmentDto | null> {
+  const updated = await Assignment.findOneAndUpdate(
+    { _id: assignmentId, orgId, status: { $in: [...from] } },
+    {
+      $set: { status: to },
+      $push: { statusHistory: { status: to, at: new Date(), by: null, reason } },
+    },
+    { returnDocument: 'after' },
+  ).lean();
+  return updated ? toDtoAndPublish(orgId, updated) : null;
+}
+
+/** The agent's open assignment at a location for a given day (used to link visits). */
+export async function findOpenAssignmentFor(
+  orgId: string,
+  agentId: Types.ObjectId | string,
+  locationId: Types.ObjectId | string,
+  scheduledDate: string,
+) {
+  return Assignment.findOne({
+    orgId,
+    agentId,
+    locationId,
+    scheduledDate,
+    status: { $in: ['pending', 'overdue', 'in_progress'] },
+  })
+    .sort({ 'window.start': 1, createdAt: 1 })
+    .lean();
+}
 
 /** An active agent the caller may assign work to. Returns the agent's current team. */
 async function resolveAssignableAgent(
@@ -227,7 +279,7 @@ export async function createAssignment(
       scheduledDate: body.scheduledDate,
     },
   });
-  return toDto(actor, assignment.toObject());
+  return toDtoAndPublish(actor.orgId, assignment.toObject());
 }
 
 export async function updateAssignment(
@@ -281,7 +333,7 @@ export async function updateAssignment(
       changes,
     });
   }
-  return toDto(actor, assignment.toObject());
+  return toDtoAndPublish(actor.orgId, assignment.toObject());
 }
 
 export async function changeAssignmentStatus(
@@ -322,5 +374,5 @@ export async function changeAssignmentStatus(
     changes: { status: { from, to: body.status } },
     metadata: body.reason ? { reason: body.reason } : null,
   });
-  return toDto(actor, updated);
+  return toDtoAndPublish(actor.orgId, updated);
 }

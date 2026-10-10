@@ -70,6 +70,36 @@ export const VISIT_STATUSES = [
 ] as const;
 export type VisitStatus = (typeof VISIT_STATUSES)[number];
 
+/** How a visit was opened: automatically from GPS dwell, or by the agent's check-in button. */
+export const VISIT_METHODS = ['auto', 'manual'] as const;
+export type VisitMethod = (typeof VISIT_METHODS)[number];
+
+/**
+ * Why a visit was not auto-verified. A GPS fix inside a geofence is evidence of proximity, not
+ * proof of a visit — any of these sends the visit to a human reviewer (`needs_review`).
+ */
+export const VISIT_REVIEW_REASONS = [
+  'low_accuracy',
+  'mock_location',
+  'insufficient_dwell',
+  'signal_lost',
+  'checkin_outside_geofence',
+  'no_gps_presence',
+  'evidence_required',
+] as const;
+export type VisitReviewReason = (typeof VISIT_REVIEW_REASONS)[number];
+
+export const VISIT_EVIDENCE_TYPES = [
+  'geofence_entry',
+  'geofence_exit',
+  'manual_checkin',
+  'manual_checkout',
+] as const;
+export type VisitEvidenceType = (typeof VISIT_EVIDENCE_TYPES)[number];
+
+export const GEOFENCE_EVENT_TYPES = ['entered', 'exited'] as const;
+export type GeofenceEventType = (typeof GEOFENCE_EVENT_TYPES)[number];
+
 export const ANOMALY_STATUSES = ['open', 'investigating', 'resolved', 'dismissed'] as const;
 export type AnomalyStatus = (typeof ANOMALY_STATUSES)[number];
 

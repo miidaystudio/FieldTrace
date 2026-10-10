@@ -1,4 +1,6 @@
 import { env } from '../../config/env.js';
+import { logger } from '../../lib/logger.js';
+import { processGeofenceSamples } from '../visits/geofence-engine.js';
 import { notFound } from '../../lib/errors.js';
 import { publishLocationUpdate } from '../../realtime/publisher.js';
 import type { TelemetryFlag, TelemetryRejectReason } from '../../shared/enums.js';
@@ -226,6 +228,24 @@ async function updateLivePosition(
   });
   // Re-evaluate connectivity right away (e.g. stale -> online) instead of waiting for the sweep.
   await publishStatusIfChanged(orgId, profile);
+
+  // Geofence entry/exit and visit lifecycle. Failures here must not reject accepted telemetry.
+  try {
+    await processGeofenceSamples(
+      orgId,
+      { _id: profile._id, teamId: profile.teamId },
+      sessionId,
+      fresh.map((sample) => ({
+        lat: sample.lat,
+        lng: sample.lng,
+        accuracyM: sample.accuracyM,
+        recordedAtMs: sample.recordedAtMs,
+        flags: sample.flags,
+      })),
+    );
+  } catch (error) {
+    logger.error({ err: error, agentId }, 'Geofence processing failed');
+  }
 }
 
 async function publishStatusIfChanged(orgId: string, profile: AgentRef): Promise<void> {

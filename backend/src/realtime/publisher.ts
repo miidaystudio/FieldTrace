@@ -4,6 +4,9 @@ import { logger } from '../lib/logger.js';
 import {
   rooms,
   type AgentStatusPayload,
+  type AssignmentUpdatedPayload,
+  type GeofenceTransitionPayload,
+  type VisitUpdatedPayload,
   type ClientToServerEvents,
   type EventEnvelope,
   type LocationUpdatePayload,
@@ -54,5 +57,36 @@ export function publishAgentStatus(orgId: string, data: AgentStatusPayload): voi
     );
   } catch (error) {
     logger.error({ err: error }, 'Failed to publish agent:status');
+  }
+}
+
+export function publishGeofenceTransition(orgId: string, data: GeofenceTransitionPayload): void {
+  const type = data.type === 'entered' ? 'geofence:entered' : 'geofence:exited';
+  try {
+    audience(orgId, data.agentId, data.teamId)?.emit(type, envelope(type, data));
+  } catch (error) {
+    logger.error({ err: error }, `Failed to publish ${type}`);
+  }
+}
+
+export function publishVisitUpdated(orgId: string, data: VisitUpdatedPayload): void {
+  try {
+    audience(orgId, data.agentId, data.teamId)?.emit(
+      'visit:updated',
+      envelope('visit:updated', data),
+    );
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to publish visit:updated');
+  }
+}
+
+export function publishAssignmentUpdated(orgId: string, data: AssignmentUpdatedPayload): void {
+  try {
+    audience(orgId, data.agentId, data.teamId)?.emit(
+      'assignment:updated',
+      envelope('assignment:updated', data),
+    );
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to publish assignment:updated');
   }
 }
