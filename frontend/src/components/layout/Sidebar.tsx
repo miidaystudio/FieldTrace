@@ -7,7 +7,6 @@ import {
   History,
   Shield,
   AlertTriangle,
-  Smartphone,
   Layers,
   ChevronRight,
   Radio,
@@ -17,9 +16,10 @@ import {
   TrendingUp,
   FileClock,
   Settings,
+  LogOut,
 } from 'lucide-react';
 import { useFleetStore } from '../../store/useFleetStore';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useAuthStore, userAvatar } from '../../store/useAuthStore';
 
 interface NavItem {
   to: string;
@@ -28,6 +28,7 @@ interface NavItem {
   exact?: boolean;
   badge?: string;
   badgeColor?: string;
+  adminOnly?: boolean;
 }
 
 interface NavSection {
@@ -41,8 +42,10 @@ export const Sidebar: React.FC = () => {
   const openAnomaliesCount = anomalies.filter((a) => a.status === 'open' || a.status === 'investigating').length;
   const movingCount = agents.filter((a) => a.status === 'moving').length;
 
-  const currentUser = useAuthStore((state) => state.currentUser);
-  const setRole = useAuthStore((state) => state.setRole);
+  const user = useAuthStore((state) => state.user);
+  const organization = useAuthStore((state) => state.organization);
+  const logout = useAuthStore((state) => state.logout);
+  const isAdmin = user?.role === 'admin';
 
   const sections: NavSection[] = [
     {
@@ -117,6 +120,7 @@ export const Sidebar: React.FC = () => {
           to: '/dashboard/audit-logs',
           label: 'Immutable Audit Trail',
           icon: <FileClock className="w-4 h-4 text-gray-400" />,
+          adminOnly: true,
         },
         {
           to: '/dashboard/settings',
@@ -151,7 +155,7 @@ export const Sidebar: React.FC = () => {
             <div className="text-[10px] font-bold text-gray-400 px-3 uppercase tracking-wider font-mono">
               {sec.title}
             </div>
-            {sec.items.map((item) => (
+            {sec.items.filter((item) => !item.adminOnly || isAdmin).map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -181,27 +185,8 @@ export const Sidebar: React.FC = () => {
         {/* Separator / Field Endpoint */}
         <div className="pt-2 border-t border-ops-border/60">
           <div className="text-[10px] font-bold text-gray-400 px-3 uppercase tracking-wider mb-1 font-mono">
-            FIELD ENDPOINTS
+            MORE
           </div>
-
-          <NavLink
-            to="/driver"
-            className={({ isActive }) =>
-              `flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
-                isActive
-                  ? 'bg-indigo-500/20 text-white font-semibold border border-indigo-500/40'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-ops-card'
-              }`
-            }
-          >
-            <div className="flex items-center gap-2.5">
-              <Smartphone className="w-4 h-4 text-indigo-400" />
-              <span>Driver Mobile PWA</span>
-            </div>
-            <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30">
-              PWA
-            </span>
-          </NavLink>
 
           <NavLink
             to="/"
@@ -216,53 +201,26 @@ export const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Role Switcher & User Profile */}
+      {/* Signed-in User */}
       <div className="p-3 border-t border-ops-border bg-ops-base/50">
         <div className="flex items-center gap-2.5 p-2 rounded-xl bg-ops-card/80 border border-ops-border">
           <img
-            src={currentUser.avatar}
-            alt={currentUser.name}
+            src={userAvatar(user)}
+            alt={user?.name ?? 'User'}
             className="w-8 h-8 rounded-full object-cover border border-brand-teal/40"
           />
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-bold text-white truncate">{currentUser.name}</div>
-            <div className="text-[10px] text-brand-teal font-mono capitalize">
-              {currentUser.role.replace('_', ' ')}
+            <div className="text-xs font-bold text-white truncate">{user?.name}</div>
+            <div className="text-[10px] text-brand-teal font-mono capitalize truncate">
+              {user?.role} · {organization?.name}
             </div>
           </div>
-        </div>
-
-        {/* Role Switcher */}
-        <div className="mt-2 grid grid-cols-3 gap-1 text-[10px] font-mono">
           <button
-            onClick={() => setRole('ops_manager')}
-            className={`py-1 text-center rounded border transition-colors ${
-              currentUser.role === 'ops_manager'
-                ? 'bg-brand-teal text-ops-base font-bold border-brand-teal'
-                : 'text-gray-400 border-ops-border hover:bg-ops-card'
-            }`}
+            onClick={() => void logout()}
+            className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-ops-hover"
+            title="Sign out"
           >
-            Ops
-          </button>
-          <button
-            onClick={() => setRole('supervisor')}
-            className={`py-1 text-center rounded border transition-colors ${
-              currentUser.role === 'supervisor'
-                ? 'bg-brand-teal text-ops-base font-bold border-brand-teal'
-                : 'text-gray-400 border-ops-border hover:bg-ops-card'
-            }`}
-          >
-            Supv
-          </button>
-          <button
-            onClick={() => setRole('driver')}
-            className={`py-1 text-center rounded border transition-colors ${
-              currentUser.role === 'driver'
-                ? 'bg-brand-teal text-ops-base font-bold border-brand-teal'
-                : 'text-gray-400 border-ops-border hover:bg-ops-card'
-            }`}
-          >
-            Driver
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>

@@ -2,154 +2,129 @@ import React from 'react';
 import { useFleetStore } from '../../store/useFleetStore';
 import { Card } from '../../components/common/Card';
 import { StatCard } from '../../components/common/StatCard';
-import {
-  TrendingUp,
-  Activity,
-  ShieldCheck,
-  Zap,
-  Gauge,
-  Clock,
-  Navigation,
-  CheckCircle2,
-  Calendar,
-  Download,
-} from 'lucide-react';
-import { Button } from '../../components/common/Button';
+import { PhaseNotice } from '../../components/common/PhaseNotice';
+import { TrendingUp, Navigation, CheckCircle2, Radio, Gauge } from 'lucide-react';
+import { fmt } from '../../api/adapters';
+import type { AgentStatus } from '../../api/types';
+import type { AssignmentStatus } from '../../api/backend';
+
+const STATUS_COLORS: Record<AgentStatus, string> = {
+  moving: 'bg-teal-400',
+  idle: 'bg-amber-400',
+  stopped: 'bg-blue-400',
+  flagged: 'bg-rose-400',
+  stale: 'bg-slate-400',
+  offline: 'bg-gray-600',
+};
+
+const ASSIGNMENT_COLORS: Record<AssignmentStatus, string> = {
+  completed: 'bg-emerald-400',
+  in_progress: 'bg-teal-400',
+  pending: 'bg-slate-400',
+  overdue: 'bg-amber-400',
+  cancelled: 'bg-rose-400',
+};
+
+const Bar: React.FC<{ label: string; count: number; total: number; color: string }> = ({ label, count, total, color }) => {
+  const percent = total ? Math.round((count / total) * 100) : 0;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-gray-300 capitalize">{label.replace('_', ' ')}</span>
+        <span className="font-mono text-gray-400">
+          {count} <span className="text-gray-600">({percent}%)</span>
+        </span>
+      </div>
+      <div className="h-2 bg-ops-base rounded-full overflow-hidden border border-ops-border">
+        <div className={`h-full ${color} transition-all duration-500`} style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
+};
 
 export const Analytics: React.FC = () => {
   const kpis = useFleetStore((state) => state.kpis);
+  const agents = useFleetStore((state) => state.agents);
+  const assignmentsToday = useFleetStore((state) => state.assignmentsToday);
+  const today = useFleetStore((state) => state.today);
 
-  const hourlySpeeds = [
-    { hour: '06:00', avg: 42, max: 68 },
-    { hour: '08:00', avg: 28, max: 55 },
-    { hour: '10:00', avg: 34, max: 62 },
-    { hour: '12:00', avg: 31, max: 59 },
-    { hour: '14:00', avg: 39, max: 71 },
-    { hour: '16:00', avg: 25, max: 48 },
-    { hour: '18:00', avg: 36, max: 65 },
-  ];
-
-  const dwellDistribution = [
-    { range: '< 15 mins', percent: 45, count: 64 },
-    { range: '15 - 30 mins', percent: 35, count: 50 },
-    { range: '30 - 60 mins', percent: 15, count: 21 },
-    { range: '> 60 mins', percent: 5, count: 7 },
-  ];
+  const statusCounts = (Object.keys(STATUS_COLORS) as AgentStatus[]).map((status) => ({
+    status,
+    count: agents.filter((a) => a.status === status).length,
+  }));
+  const assignmentCounts = (Object.keys(ASSIGNMENT_COLORS) as AssignmentStatus[]).map((status) => ({
+    status,
+    count: assignmentsToday.filter((a) => a.status === status).length,
+  }));
+  const withBattery = agents.filter((a) => a.batteryLevel !== null);
+  const lowBattery = withBattery.filter((a) => (a.batteryLevel ?? 100) < 20).length;
+  const completionRate = kpis.assignmentsToday
+    ? Math.round((kpis.completedAssignmentsToday / kpis.assignmentsToday) * 100)
+    : null;
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <TrendingUp className="w-6 h-6 text-brand-teal" />
-            <span>Operations & Fleet Analytics</span>
-          </h1>
-          <p className="text-xs text-gray-400 mt-1">
-            Kinematic velocity profiles, site dwell time distribution, and geofence compliance trends.
-          </p>
-        </div>
-
-        <Button variant="secondary" size="sm" leftIcon={<Download className="w-4 h-4" />}>
-          Export Intelligence PDF
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+          <TrendingUp className="w-6 h-6 text-brand-teal" />
+          <span>Operations & Fleet Analytics</span>
+        </h1>
+        <p className="text-xs text-gray-400 mt-1">Live breakdown of the fleet right now and of today's ({today}) assignments.</p>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Fleet Compliance Rate"
-          value={`${kpis.complianceScore}%`}
-          change={+1.4}
+          title="Agents On Shift"
+          value={`${kpis.onShiftCount} / ${kpis.totalAgents}`}
           variant="emerald"
-          icon={<ShieldCheck className="w-5 h-5 text-emerald-400" />}
+          icon={<Radio className="w-5 h-5 text-emerald-400" />}
         />
         <StatCard
-          title="Avg Turnaround / Dwell"
-          value="24.5 mins"
-          subValue="Across 142 sites"
-          change={-3.2}
-          changeLabel="vs last week (faster)"
+          title="Moving Now"
+          value={kpis.movingCount}
+          subValue={`avg ${fmt(kpis.avgSpeedKmH, ' km/h')}`}
           variant="teal"
-          icon={<Clock className="w-5 h-5 text-brand-teal" />}
+          icon={<Navigation className="w-5 h-5 text-brand-teal" />}
         />
         <StatCard
-          title="Total Telemetry Pings"
-          value="1.84M"
-          subValue="Zero dropped pings"
-          variant="default"
-          icon={<Activity className="w-5 h-5 text-cyan-400" />}
-        />
-        <StatCard
-          title="Fuel / Battery Efficiency"
-          value="94.2%"
-          change={+0.8}
+          title="Today's Completion Rate"
+          value={fmt(completionRate, '%')}
+          subValue={`${kpis.completedAssignmentsToday} of ${kpis.assignmentsToday} assignments`}
           variant="amber"
-          icon={<Gauge className="w-5 h-5 text-amber-400" />}
+          icon={<CheckCircle2 className="w-5 h-5 text-amber-400" />}
+        />
+        <StatCard
+          title="Low Battery (< 20%)"
+          value={lowBattery}
+          subValue={`${withBattery.length} agents reporting battery`}
+          variant="rose"
+          icon={<Gauge className="w-5 h-5 text-rose-400" />}
         />
       </div>
 
-      {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Hourly Velocity Trend */}
-        <Card
-          header={
-            <div className="flex items-center justify-between w-full">
-              <span className="font-bold text-xs uppercase tracking-wider font-mono">
-                Hourly Velocity & Congestion Profile (km/h)
-              </span>
-              <span className="text-[10px] text-gray-400 font-mono">San Francisco Sector</span>
-            </div>
-          }
-        >
-          <div className="space-y-4 pt-2">
-            {hourlySpeeds.map((item) => (
-              <div key={item.hour} className="space-y-1">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-gray-400">{item.hour}</span>
-                  <span className="text-white font-bold">
-                    Avg: {item.avg} km/h <span className="text-gray-500 font-normal">(Max {item.max})</span>
-                  </span>
-                </div>
-                <div className="w-full bg-ops-base h-2.5 rounded-full overflow-hidden border border-ops-border">
-                  <div
-                    className="h-full bg-gradient-to-r from-brand-teal to-emerald-400 rounded-full"
-                    style={{ width: `${(item.avg / 80) * 100}%` }}
-                  />
-                </div>
-              </div>
+        <Card header={<span className="font-bold text-xs uppercase tracking-wider font-mono">Fleet Status Right Now</span>}>
+          <div className="space-y-3">
+            {statusCounts.map(({ status, count }) => (
+              <Bar key={status} label={status} count={count} total={agents.length} color={STATUS_COLORS[status]} />
             ))}
           </div>
         </Card>
-
-        {/* Dwell Time Histogram */}
-        <Card
-          header={
-            <div className="flex items-center justify-between w-full">
-              <span className="font-bold text-xs uppercase tracking-wider font-mono">
-                Client Site Dwell Time Distribution
-              </span>
-              <span className="text-[10px] text-gray-400 font-mono">142 Visits Audited</span>
-            </div>
-          }
-        >
-          <div className="space-y-4 pt-2">
-            {dwellDistribution.map((d) => (
-              <div key={d.range} className="space-y-1">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-gray-300 font-semibold">{d.range}</span>
-                  <span className="text-brand-teal font-bold">{d.count} visits ({d.percent}%)</span>
-                </div>
-                <div className="w-full bg-ops-base h-2.5 rounded-full overflow-hidden border border-ops-border">
-                  <div
-                    className="h-full bg-brand-teal rounded-full"
-                    style={{ width: `${d.percent}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+        <Card header={<span className="font-bold text-xs uppercase tracking-wider font-mono">Today's Assignments by Status</span>}>
+          <div className="space-y-3">
+            {assignmentsToday.length === 0 && <p className="text-xs text-gray-500 italic">No assignments today.</p>}
+            {assignmentsToday.length > 0 &&
+              assignmentCounts.map(({ status, count }) => (
+                <Bar key={status} label={status} count={count} total={assignmentsToday.length} color={ASSIGNMENT_COLORS[status]} />
+              ))}
           </div>
         </Card>
       </div>
+
+      <PhaseNotice phase={4} feature="Historical KPIs, trends and CSV reports">
+        Distance travelled, on-time arrival rate, dwell-time distribution and exports need the analytics APIs.
+        Until then this page shows only live, real-time figures.
+      </PhaseNotice>
     </div>
   );
 };

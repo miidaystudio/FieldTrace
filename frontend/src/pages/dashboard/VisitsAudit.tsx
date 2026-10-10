@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PhaseNotice } from '../../components/common/PhaseNotice';
 import { useFleetStore } from '../../store/useFleetStore';
 import { ProofOfVisit, VisitStatus } from '../../api/types';
 import { DataTable, Column } from '../../components/common/DataTable';
@@ -182,6 +183,9 @@ export const VisitsAudit: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+      <PhaseNotice phase={3} feature="Proof-of-visit verification">
+        Geofence entry/exit detection, check-in/check-out and visit evidence are built in Phase 3. Until then this ledger stays empty instead of showing sample visits.
+      </PhaseNotice>
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

@@ -119,3 +119,8 @@
     linear-gradient(to right, rgba(32, 41, 56, 0.4) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(32, 41, 56, 0.4) 1px, transparent 1px);
 }
+
+/* Dark basemap: invert OSM raster tiles, keep hues roughly natural. */
+.map-tiles-dark {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.6);
+}

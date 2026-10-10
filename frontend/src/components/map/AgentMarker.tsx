@@ -3,6 +3,7 @@ import { Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { Agent } from '../../api/types';
 import { Badge } from '../common/Badge';
+import { fmt, timeAgo } from '../../api/adapters';
 import { Battery, Signal, Gauge, Compass, ShieldAlert, Phone, ExternalLink } from 'lucide-react';
 
 interface AgentMarkerProps {
@@ -163,21 +164,22 @@ export const AgentMarker: React.FC<AgentMarkerProps> = ({
             </div>
             <div className="flex items-center gap-1.5 text-gray-300">
               <Battery className="w-3.5 h-3.5 text-amber-400" />
-              <span className="font-mono">{agent.batteryLevel}%</span>
+              <span className="font-mono">{fmt(agent.batteryLevel, '%')}</span>
             </div>
             <div className="flex items-center gap-1.5 text-gray-300">
               <Signal className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="font-mono">{agent.signalStrength} dBm</span>
+              <span className="font-mono">±{fmt(agent.telemetry.accuracyMeters, 'm')}</span>
             </div>
           </div>
 
           <div className="mt-2 pt-2 border-t border-ops-border text-[11px] text-gray-400">
-            <p className="truncate"><strong className="text-gray-300">Dest:</strong> {agent.destinationName || 'En route'}</p>
+            <p className="truncate"><strong className="text-gray-300">Dest:</strong> {agent.destinationName || 'No open assignment'}</p>
+            <p className="truncate"><strong className="text-gray-300">Last fix:</strong> {timeAgo(agent.lastHeartbeat)}</p>
           </div>
 
           <div className="mt-3 flex items-center gap-2">
             <a
-              href={`tel:${agent.phone}`}
+              href={agent.phone ? `tel:${agent.phone}` : undefined}
               className="flex-1 flex items-center justify-center gap-1 bg-ops-card hover:bg-ops-hover text-gray-200 py-1 px-2 rounded border border-ops-border text-xs transition-colors"
             >
               <Phone className="w-3 h-3" /> Call

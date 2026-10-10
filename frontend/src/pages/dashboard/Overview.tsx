@@ -1,6 +1,8 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useFleetStore } from '../../store/useFleetStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { fmt } from '../../api/adapters';
 import { StatCard } from '../../components/common/StatCard';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
@@ -27,7 +29,9 @@ export const Overview: React.FC = () => {
   const navigate = useNavigate();
   const agents = useFleetStore((state) => state.agents);
   const geofences = useFleetStore((state) => state.geofences);
-  const visits = useFleetStore((state) => state.visits);
+  const assignmentsToday = useFleetStore((state) => state.assignmentsToday);
+  const eventsReceived = useFleetStore((state) => state.eventsReceived);
+  const organization = useAuthStore((state) => state.organization);
   const anomalies = useFleetStore((state) => state.anomalies);
   const kpis = useFleetStore((state) => state.kpis);
   const setSelectedAgent = useFleetStore((state) => state.setSelectedAgent);
@@ -45,11 +49,11 @@ export const Overview: React.FC = () => {
           <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
             Operations Command Center
             <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-brand-teal/10 border border-brand-teal/30 text-brand-teal">
-              SAN FRANCISCO SECTOR
+              {organization?.name ?? 'Organization'}
             </span>
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            Real-time autonomous fleet telemetry, geofence verification audits, and explainable AI anomaly triage.
+            Live positions and status of your field agents, streamed from the FieldTrace backend.
           </p>
         </div>
 
@@ -94,39 +98,33 @@ export const Overview: React.FC = () => {
         </div>
       )}
 
-      {/* KPI Stats Grid */}
+      {/* KPI Stats Grid — all computed from live backend data */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Active Live Fleet"
           value={`${movingAgents.length} / ${agents.length}`}
-          subValue={`${idleAgents.length} idle`}
-          change={8.4}
-          changeLabel="vs morning avg"
+          subValue={`${idleAgents.length} idle / stopped`}
           variant="teal"
           icon={<Navigation className="w-5 h-5 text-brand-teal" />}
         />
         <StatCard
-          title="Verified Visits (Today)"
-          value={kpis.verifiedVisitsToday}
-          subValue={`${kpis.pendingVisitsToday} pending`}
-          change={12.1}
-          changeLabel="vs target"
+          title="On Shift Now"
+          value={`${kpis.onShiftCount} / ${kpis.totalAgents}`}
+          subValue={`${kpis.offlineCount} stale or offline`}
           variant="emerald"
-          icon={<CheckCircle2 className="w-5 h-5 text-emerald-400" />}
+          icon={<Radio className="w-5 h-5 text-emerald-400" />}
         />
         <StatCard
-          title="Geofence Compliance"
-          value={`${kpis.complianceScore}%`}
-          subValue="Zero-trust score"
-          change={-0.3}
-          changeLabel="2 deviations"
+          title="Assignments Today"
+          value={`${kpis.completedAssignmentsToday} / ${kpis.assignmentsToday}`}
+          subValue="completed"
           variant="amber"
-          icon={<ShieldCheck className="w-5 h-5 text-amber-400" />}
+          icon={<CheckCircle2 className="w-5 h-5 text-amber-400" />}
         />
         <StatCard
-          title="Open Kinematic Alerts"
-          value={openAnomalies.length}
-          subValue={`${flaggedAgents.length} agents flagged`}
+          title="Flagged Agents"
+          value={flaggedAgents.length}
+          subValue={openAnomalies.length > 0 ? `${openAnomalies.length} open anomalies` : 'mock-location signals'}
           variant="rose"
           icon={<Zap className="w-5 h-5 text-rose-400" />}
         />
@@ -151,7 +149,7 @@ export const Overview: React.FC = () => {
             className="h-[460px] p-0"
           >
             <FleetMap
-              agents={agents.slice(0, 35)}
+              agents={agents}
               geofences={geofences}
               onInspectAgent={(a) => {
                 setSelectedAgent(a.id);
@@ -164,11 +162,11 @@ export const Overview: React.FC = () => {
           <div className="grid grid-cols-3 gap-3">
             <div className="p-3 bg-ops-panel border border-ops-border rounded-xl">
               <span className="text-[10px] text-gray-400 uppercase tracking-wider font-mono">Fleet Velocity</span>
-              <div className="text-lg font-bold font-mono text-white mt-1">{kpis.avgSpeedKmH} km/h avg</div>
+              <div className="text-lg font-bold font-mono text-white mt-1">{fmt(kpis.avgSpeedKmH, ' km/h')} avg</div>
             </div>
             <div className="p-3 bg-ops-panel border border-ops-border rounded-xl">
-              <span className="text-[10px] text-gray-400 uppercase tracking-wider font-mono">Distance Covered</span>
-              <div className="text-lg font-bold font-mono text-brand-teal mt-1">{kpis.totalDistanceKmToday.toLocaleString()} km</div>
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider font-mono">Live Events</span>
+              <div className="text-lg font-bold font-mono text-brand-teal mt-1">{eventsReceived.toLocaleString()} received</div>
             </div>
             <div className="p-3 bg-ops-panel border border-ops-border rounded-xl">
               <span className="text-[10px] text-gray-400 uppercase tracking-wider font-mono">Active Geofences</span>
@@ -184,41 +182,57 @@ export const Overview: React.FC = () => {
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-2">
                   <Activity className="w-4 h-4 text-brand-teal" />
-                  <span>Live Dispatch Feed</span>
+                  <span>Today's Assignments</span>
                 </div>
-                <span className="text-[10px] text-gray-400 font-mono">Auto-syncing</span>
+                <span className="text-[10px] text-gray-400 font-mono">latest first</span>
               </div>
             }
             className="flex-1 max-h-[560px] overflow-y-auto"
           >
             <div className="space-y-3">
-              {visits.slice(0, 5).map((visit) => (
-                <div
-                  key={visit.id}
-                  onClick={() => navigate('/dashboard/visits')}
-                  className="p-3 bg-ops-card/80 hover:bg-ops-hover rounded-xl border border-ops-border cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-bold text-xs text-white truncate max-w-[170px]">{visit.siteName}</span>
-                    <Badge variant={visit.status as any} size="sm">
-                      {visit.status}
-                    </Badge>
+              {assignmentsToday.length === 0 && (
+                <p className="text-xs text-gray-500 italic text-center py-6">No assignments scheduled for today.</p>
+              )}
+              {[...assignmentsToday]
+                .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+                .slice(0, 6)
+                .map((assignment) => (
+                  <div
+                    key={assignment.id}
+                    onClick={() => navigate('/dashboard/tasks')}
+                    className="p-3 bg-ops-card/80 hover:bg-ops-hover rounded-xl border border-ops-border cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-bold text-xs text-white truncate max-w-[170px]">
+                        {assignment.location?.name ?? 'Unknown site'}
+                      </span>
+                      <Badge
+                        variant={
+                          assignment.status === 'completed'
+                            ? 'verified'
+                            : assignment.status === 'in_progress'
+                              ? 'moving'
+                              : assignment.status === 'cancelled' || assignment.status === 'overdue'
+                                ? 'flagged'
+                                : 'slate'
+                        }
+                        size="sm"
+                      >
+                        {assignment.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                      <span>{assignment.agent?.name ?? '—'}</span>
+                      <span>•</span>
+                      <span className="font-mono text-gray-500">
+                        updated {new Date(assignment.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    {assignment.title && (
+                      <div className="mt-2 text-[10px] text-gray-400 font-mono truncate">{assignment.title}</div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-gray-400">
-                    <img src={visit.agentAvatar} alt={visit.agentName} className="w-4 h-4 rounded-full" />
-                    <span>{visit.agentName}</span>
-                    <span>•</span>
-                    <span className="font-mono text-gray-500">
-                      {new Date(visit.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-[10px] text-gray-400 font-mono flex items-center justify-between">
-                    <span>Method: {visit.verificationMethod.replace('_', ' ')}</span>
-                    <span className="text-brand-teal">Score: {visit.confidenceScore}%</span>
-                  </div>
-                </div>
-              ))}
-
+                ))}
               {anomalies.slice(0, 2).map((a) => (
                 <div
                   key={a.id}
