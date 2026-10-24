@@ -1,43 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --bg-base: #0B0F17;
-    --panel-slate: #151C28;
-    --card-slate: #18202F;
-    --border-slate: #202938;
-    --accent-teal: #5EEAD4;
+    --bg-base: #FAF8F5;
+    --panel-slate: #FFFFFF;
+    --card-slate: #FFFFFF;
+    --border-slate: #EBE6DF;
+    --accent-teal: #E85D38;
     --accent-emerald: #10B981;
-    --warning-amber: #FBBF24;
-    --critical-rose: #F43F5E;
+    --warning-amber: #F59E0B;
+    --critical-rose: #EF4444;
   }
 
   body {
-    background-color: #0B0F17;
-    color: #F3F4F6;
+    font-family: 'Comfortaa', 'Inter', 'Outfit', system-ui, sans-serif;
+    background-color: #FAF8F5;
+    color: #1C1917;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
-/* Custom Operations Room Scrollbars */
+/* Custom Warm Minimalist Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0B0F17;
+  background: #FAF8F5;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #202938;
+  background: #EBE6DF;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #D8D1C5;
 }
 
 /* Leaflet Dark Map Tile Custom Overrides */
@@ -123,4 +126,70 @@
 /* Dark basemap: invert OSM raster tiles, keep hues roughly natural. */
 .map-tiles-dark {
   filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.6);
+}
+
+/* 3D Tactile Clay/Hardware Shadows (Assemble Style) */
+.shadow-tactile-3d {
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 8px rgba(0, 0, 0, 0.04),
+    0 12px 24px -4px rgba(28, 25, 23, 0.08),
+    0 24px 48px -8px rgba(28, 25, 23, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+
+.shadow-tactile-dark {
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.2),
+    0 16px 32px -4px rgba(0, 0, 0, 0.35),
+    0 28px 56px -8px rgba(0, 0, 0, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.25);
+}
+
+.shadow-mockup-window {
+  box-shadow: 
+    0 2px 4px rgba(28, 25, 23, 0.02),
+    0 10px 20px -5px rgba(28, 25, 23, 0.04),
+    0 30px 60px -12px rgba(28, 25, 23, 0.08),
+    0 50px 100px -20px rgba(28, 25, 23, 0.08);
+}
+
+/* Floating Animations */
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) rotate(var(--rot, 0deg));
+  }
+  50% {
+    transform: translateY(-9px) rotate(calc(var(--rot, 0deg) + 1deg));
+  }
+}
+
+@keyframes float-reverse {
+  0%, 100% {
+    transform: translateY(0px) rotate(var(--rot, 0deg));
+  }
+  50% {
+    transform: translateY(9px) rotate(calc(var(--rot, 0deg) - 1.5deg));
+  }
+}
+
+@keyframes float-gentle {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.01);
+  }
+}
+
+.animate-float-slow {
+  animation: float-slow 7s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: float-reverse 8s ease-in-out infinite 0.5s;
+}
+
+.animate-float-gentle {
+  animation: float-gentle 6s ease-in-out infinite 1s;
 }

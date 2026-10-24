@@ -50,6 +50,7 @@ function todayIn(timeZone: string): string {
 
 /** Deletes the org's live-map keys in Redis (best effort; Redis may not be running). */
 async function clearLiveState(orgId: string): Promise<void> {
+  if (env.REDIS_URL === 'memory') return;
   const redis = new Redis(env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 1 });
   try {
     await redis.connect();

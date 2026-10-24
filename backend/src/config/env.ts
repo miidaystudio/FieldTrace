@@ -23,8 +23,10 @@ const envSchema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   REDIS_URL: z
     .string()
-    .regex(/^rediss?:\/\//, 'must be a redis:// or rediss:// URI')
-    .default('redis://127.0.0.1:6380'),
+    .refine((val) => val === 'memory' || /^rediss?:\/\//.test(val), {
+      message: "must be 'memory' or a redis:// / rediss:// URI",
+    })
+    .default('memory'),
   /** Prefix for every Redis key, so several apps/environments can share one Redis safely. */
   REDIS_KEY_PREFIX: z.string().max(40).default('ft:'),
   CORS_ORIGINS: z

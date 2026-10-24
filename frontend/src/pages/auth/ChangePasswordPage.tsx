@@ -45,21 +45,21 @@ export const ChangePasswordPage: React.FC = () => {
       <form onSubmit={handleSubmit} className="space-y-3 text-xs">
         <FormError message={error} />
         <div>
-          <label className="block text-gray-300 font-semibold mb-1">Current / temporary password</label>
+          <label className="block text-stone-700 font-bold mb-1 font-mono">Current / temporary password</label>
           <input type="password" autoComplete="current-password" required value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className="block text-gray-300 font-semibold mb-1">New password (min. 10 characters)</label>
+          <label className="block text-stone-700 font-bold mb-1 font-mono">New password (min. 10 characters)</label>
           <input type="password" autoComplete="new-password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className="block text-gray-300 font-semibold mb-1">Confirm new password</label>
+          <label className="block text-stone-700 font-bold mb-1 font-mono">Confirm new password</label>
           <input type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} className={inputClass} />
         </div>
-        <Button type="submit" variant="primary" size="md" className="w-full font-bold" disabled={submitting} leftIcon={<KeyRound className="w-4 h-4" />}>
+        <Button type="submit" variant="primary" size="md" className="w-full font-bold shadow-md shadow-orange-500/20 py-2.5 text-xs" disabled={submitting} leftIcon={<KeyRound className="w-4 h-4" />}>
           {submitting ? 'Saving…' : 'Save password'}
         </Button>
-        <button type="button" onClick={() => void logout()} className="w-full text-center text-gray-400 hover:text-white">
+        <button type="button" onClick={() => void logout()} className="w-full text-center text-stone-500 hover:text-stone-900 font-semibold py-1 transition-colors">
           Sign out
         </button>
       </form>

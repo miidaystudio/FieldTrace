@@ -20,30 +20,30 @@ export const Card: React.FC<CardProps> = ({
 }) => {
   const glowStyles = {
     none: '',
-    teal: 'border-brand-teal/40 shadow-[0_0_20px_rgba(94,234,212,0.15)]',
-    emerald: 'border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]',
-    rose: 'border-rose-500/40 shadow-[0_0_20px_rgba(244,63,94,0.15)]',
-    amber: 'border-amber-500/40 shadow-[0_0_20px_rgba(251,191,36,0.15)]',
+    teal: 'border-[#E85D38]/50 shadow-[0_12px_32px_rgba(232,93,56,0.15)]',
+    emerald: 'border-emerald-500/50 shadow-[0_12px_32px_rgba(16,185,129,0.15)]',
+    rose: 'border-rose-500/50 shadow-[0_12px_32px_rgba(239,68,68,0.15)]',
+    amber: 'border-amber-500/50 shadow-[0_12px_32px_rgba(245,158,11,0.15)]',
   };
 
   return (
     <div
       className={twMerge(
-        'bg-ops-panel border border-ops-border rounded-xl text-gray-100 transition-all duration-200 overflow-hidden flex flex-col',
-        interactive && 'hover:border-ops-borderHighlight hover:bg-ops-card cursor-pointer',
+        'bg-white border border-stone-200/80 rounded-3xl text-stone-900 shadow-[0_10px_30px_rgba(28,25,23,0.04)] transition-all duration-300 overflow-hidden flex flex-col',
+        interactive && 'hover:shadow-[0_20px_45px_rgba(28,25,23,0.08)] hover:-translate-y-1 cursor-pointer',
         glowStyles[glow],
         className
       )}
       {...props}
     >
       {header && (
-        <div className="px-4 py-3 border-b border-ops-border bg-ops-base/40 flex items-center justify-between text-sm font-semibold tracking-wide">
+        <div className="px-6 py-4 border-b border-stone-100 bg-[#FAF8F5]/60 flex items-center justify-between text-sm font-semibold tracking-wide text-stone-800">
           {header}
         </div>
       )}
-      <div className="p-4 flex-1">{children}</div>
+      <div className="p-6 flex-1">{children}</div>
       {footer && (
-        <div className="px-4 py-2.5 border-t border-ops-border bg-ops-base/30 text-xs text-gray-400">
+        <div className="px-6 py-3 border-t border-stone-100 bg-[#FAF8F5]/40 text-xs text-stone-500">
           {footer}
         </div>
       )}

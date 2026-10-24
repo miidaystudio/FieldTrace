@@ -20,15 +20,15 @@ export const Button: React.FC<ButtonProps> = ({
   disabled,
   ...props
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-150 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0B0F17] disabled:opacity-50 disabled:cursor-not-allowed select-none active:scale-[0.98]';
+  const baseStyles = 'inline-flex items-center justify-center font-semibold transition-all duration-200 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#FAF8F5] disabled:opacity-50 disabled:cursor-not-allowed select-none active:scale-[0.98]';
 
   const variants = {
-    primary: 'bg-brand-teal text-[#0B0F17] hover:bg-[#4dd4be] font-semibold shadow-lg shadow-teal-950/40 focus:ring-brand-teal border border-teal-300/40',
-    secondary: 'bg-ops-card text-gray-200 hover:bg-ops-hover border border-ops-border hover:border-ops-borderHighlight focus:ring-slate-400',
-    outline: 'bg-transparent text-brand-teal border border-brand-teal/40 hover:bg-brand-teal/10 focus:ring-brand-teal',
-    danger: 'bg-rose-600/90 text-white hover:bg-rose-500 shadow-lg shadow-rose-950/40 focus:ring-rose-500 border border-rose-400/30',
-    ghost: 'bg-transparent text-gray-300 hover:text-white hover:bg-ops-hover focus:ring-slate-500',
-    glass: 'bg-[#151C28]/80 backdrop-blur-md text-gray-200 border border-slate-700/60 hover:border-brand-teal/50 hover:text-white shadow-xl',
+    primary: 'bg-[#E85D38] text-white hover:bg-[#D94F2B] shadow-[0_10px_25px_rgba(232,93,56,0.32)] hover:shadow-[0_14px_32px_rgba(232,93,56,0.42)] focus:ring-[#E85D38] border border-orange-400/30',
+    secondary: 'bg-white text-stone-800 hover:bg-stone-50 border border-stone-200/90 shadow-[0_2px_8px_rgba(28,25,23,0.04)] hover:border-stone-300 focus:ring-stone-400',
+    outline: 'bg-transparent text-[#E85D38] border border-[#E85D38]/40 hover:bg-[#FFF2ED] focus:ring-[#E85D38]',
+    danger: 'bg-rose-600 text-white hover:bg-rose-500 shadow-md focus:ring-rose-500 border border-rose-400/30',
+    ghost: 'bg-transparent text-stone-600 hover:text-stone-900 hover:bg-stone-100/80 focus:ring-stone-400',
+    glass: 'bg-white/90 backdrop-blur-md text-stone-800 border border-stone-200 shadow-[0_4px_16px_rgba(28,25,23,0.04)] hover:border-[#E85D38]/50',
   };
 
   const sizes = {
