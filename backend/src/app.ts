@@ -11,11 +11,15 @@ import { generateOpenApiDocument } from './lib/openapi.js';
 import type { ModuleRouter } from './lib/route.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { agentRoutes } from './modules/agents/agent.routes.js';
+import { analyticsRoutes, reportRoutes } from './modules/analytics/analytics.routes.js';
+import { anomalyRoutes } from './modules/anomalies/anomaly.routes.js';
 import { assignmentRoutes } from './modules/assignments/assignment.routes.js';
 import { auditRoutes } from './modules/audit/audit.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import { locationRoutes } from './modules/locations/location.routes.js';
+import { notificationRoutes } from './modules/notifications/notification.routes.js';
+import { routeRoutes } from './modules/routing/route.routes.js';
 import { organizationRoutes } from './modules/organizations/organization.routes.js';
 import { teamRoutes } from './modules/teams/team.routes.js';
 import {
@@ -48,6 +52,11 @@ const modules: ModuleRouter[] = [
   visitRoutes,
   geofenceEventRoutes,
   routeAnalysisRoutes,
+  anomalyRoutes,
+  analyticsRoutes,
+  reportRoutes,
+  notificationRoutes,
+  routeRoutes,
 ];
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{8,64}$/;
@@ -92,7 +101,13 @@ export function createApp(): express.Express {
     cors({
       origin: env.CORS_ORIGINS,
       credentials: true,
-      exposedHeaders: ['X-Request-Id', 'RateLimit', 'RateLimit-Policy', 'Retry-After'],
+      exposedHeaders: [
+        'X-Request-Id',
+        'RateLimit',
+        'RateLimit-Policy',
+        'Retry-After',
+        'Content-Disposition',
+      ],
     }),
   );
   app.use(express.json({ limit: '100kb' }));

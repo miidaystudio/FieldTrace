@@ -39,7 +39,7 @@ interface NavSection {
 export const Sidebar: React.FC = () => {
   const anomalies = useFleetStore((state) => state.anomalies);
   const agents = useFleetStore((state) => state.agents);
-  const openAnomaliesCount = anomalies.filter((a) => a.status === 'open' || a.status === 'investigating').length;
+  const openAnomaliesCount = anomalies.filter((a) => a.status === 'open' || a.status === 'acknowledged').length;
   const movingCount = agents.filter((a) => a.status === 'moving').length;
 
   const user = useAuthStore((state) => state.user);

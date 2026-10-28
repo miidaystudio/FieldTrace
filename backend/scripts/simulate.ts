@@ -6,6 +6,7 @@
  *   npm run simulate                         # 50 agents of acme-logistics, a fix every 5 s
  *   npm run simulate -- --agents 10 --interval 2 --org swift-couriers
  *   npm run simulate -- --duration 120     # stop by itself after 2 minutes
+ *   npm run simulate -- --rogue 3          # 3 agents misbehave (mock GPS, jumps, silence)
  *
  * Requires the API to be running (`npm run dev`) and `npm run seed` data. Access tokens are
  * minted locally for the seeded agents (dev only), so no passwords or login rate limits apply.
@@ -23,6 +24,7 @@ import { ClientLocation } from '../src/modules/locations/location.model.js';
 import { Organization } from '../src/modules/organizations/organization.model.js';
 import { User } from '../src/modules/users/user.model.js';
 import { Assignment } from '../src/modules/assignments/assignment.model.js';
+import { RoutePlan } from '../src/modules/routing/route-plan.model.js';
 import { haversineMeters } from '../src/shared/geo.js';
 import type { LatLng } from '../src/shared/schemas.js';
 
@@ -33,6 +35,7 @@ const { values: args } = parseArgs({
     org: { type: 'string', default: 'acme-logistics' },
     api: { type: 'string', default: `http://localhost:${env.PORT}` },
     duration: { type: 'string', default: '0' },
+    rogue: { type: 'string', default: '0' },
   },
 });
 const AGENT_COUNT = Number(args.agents);
@@ -42,6 +45,12 @@ const API = `${args.api}/api/v1`;
 const TOKEN_REFRESH_MS = 10 * 60_000;
 /** Longer than the default minimum dwell (120 s) so stops at client sites become visits. */
 const DWELL_SEC = 150;
+/** Phase 4 demo: the first N agents misbehave so the anomaly rules have something to catch. */
+const ROGUE_COUNT = Number(args.rogue);
+const ROGUE_KINDS = ['mock', 'jump', 'silent'] as const;
+type RogueKind = (typeof ROGUE_KINDS)[number];
+/** `silent` agents report for 2 min, then go quiet for 12 min (> the 10 min gap rule), repeat. */
+const SILENT_CYCLE_MS = { on: 2 * 60_000, off: 12 * 60_000 };
 
 interface SimAgent {
   agentId: string;
@@ -58,6 +67,9 @@ interface SimAgent {
   speedMps: number;
   dwellUntil: number;
   battery: number;
+  rogue: RogueKind | null;
+  ticks: number;
+  startedAt: number;
 }
 
 const stats = {
@@ -143,7 +155,17 @@ async function tick(agent: SimAgent): Promise<void> {
   }
   const speed = step(agent, now);
   agent.battery = Math.max(5, agent.battery - Math.random() * 0.05);
-  const fix = jitter(agent.position, 4);
+  agent.ticks += 1;
+  if (agent.rogue === 'silent') {
+    const cycle = (now - agent.startedAt) % (SILENT_CYCLE_MS.on + SILENT_CYCLE_MS.off);
+    if (cycle >= SILENT_CYCLE_MS.on) return;
+  }
+  // A `jump` agent reports a fix ~3 km off every 20th tick (the agent itself does not move).
+  const fix =
+    agent.rogue === 'jump' && agent.ticks % 20 === 0
+      ? jitter({ lat: agent.position.lat + 0.027, lng: agent.position.lng }, 50)
+      : jitter(agent.position, 4);
+  const isMock = agent.rogue === 'mock' && agent.ticks % 6 === 0;
   agent.seq += 1;
   const started = performance.now();
   stats.sent += 1;
@@ -161,6 +183,7 @@ async function tick(agent: SimAgent): Promise<void> {
           recordedAt: new Date(now).toISOString(),
           speedMps: Number(speed.toFixed(2)),
           batteryPct: Math.round(agent.battery),
+          ...(isMock ? { isMock: true } : {}),
         },
       ],
     },
@@ -214,6 +237,18 @@ async function main(): Promise<void> {
     .select('agentId locationId')
     .lean();
   const stopById = new Map(locations.map((l, i) => [l._id.toString(), stops[i]!]));
+  // A saved route plan (Phase 5) decides the order in which an agent drives to its stops.
+  const plans = await RoutePlan.find({ orgId: org._id, date: today, status: 'active' })
+    .select('stops.assignmentId stops.sequence')
+    .lean();
+  const sequence = new Map(
+    plans.flatMap((plan) =>
+      plan.stops.map((s) => [s.assignmentId.toString(), s.sequence] as const),
+    ),
+  );
+  todays.sort(
+    (a, b) => (sequence.get(a._id.toString()) ?? 1000) - (sequence.get(b._id.toString()) ?? 1000),
+  );
 
   const agents: SimAgent[] = [];
   for (const profile of selected) {
@@ -237,6 +272,9 @@ async function main(): Promise<void> {
       speedMps: 8 + Math.random() * 6,
       dwellUntil: 0,
       battery: 60 + Math.random() * 40,
+      rogue: agents.length < ROGUE_COUNT ? ROGUE_KINDS[agents.length % ROGUE_KINDS.length]! : null,
+      ticks: 0,
+      startedAt: Date.now(),
     };
     const session = await api<{ id: string; sampleCount: number }>(agent, '/shifts/start', {
       device: { platform: 'simulator', appVersion: 'sim-1.0' },
@@ -248,6 +286,8 @@ async function main(): Promise<void> {
   console.log(
     `[sim] ${agents.length} agents on shift in ${org.name}; a fix every ${INTERVAL_SEC}s → ${API}`,
   );
+  for (const agent of agents.filter((a) => a.rogue))
+    console.log(`[sim] rogue agent: ${agent.name} (${agent.rogue})`);
 
   const inFlight = new Set<Promise<void>>();
   // Spread agents across the interval so load is smooth rather than bursty.

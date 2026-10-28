@@ -56,7 +56,7 @@ export function onSessionChange(listener: (session: SessionPayload | null) => vo
 type Query = Record<string, string | number | boolean | undefined | null>;
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   query?: Query;
   /** Attach the access token (default true). */
@@ -130,6 +130,22 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<{
 
 export async function api<T>(path: string, options?: RequestOptions): Promise<T> {
   return (await request<T>(path, options)).data;
+}
+
+/** Downloads a file (e.g. CSV) with the same auth/refresh handling as JSON calls. */
+export async function apiDownload(
+  path: string,
+  query?: Query,
+): Promise<{ blob: Blob; filename: string | null }> {
+  let res = await send(path, { query });
+  if (res.status === 401) {
+    const body = (await res.clone().json().catch(() => null)) as { error?: { code?: string } } | null;
+    if (body?.error?.code === 'TOKEN_EXPIRED' && (await refreshSession())) res = await send(path, { query });
+  }
+  if (!res.ok) await parse(res); // throws ApiError with the server's message
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? null;
+  return { blob: await res.blob(), filename };
 }
 
 export async function apiPage<T>(

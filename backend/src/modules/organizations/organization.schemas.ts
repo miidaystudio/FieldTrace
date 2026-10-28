@@ -15,6 +15,39 @@ export const timezoneSchema = z
   }, 'must be a valid IANA timezone')
   .openapi({ example: 'Asia/Kolkata' });
 
+const enabled = z.boolean();
+export const anomalyRulesSchema = z
+  .object({
+    impossibleSpeed: z.object({ enabled, maxSpeedKmh: z.number().int().min(60).max(1000) }),
+    gpsJump: z.object({
+      enabled,
+      minDistanceM: z.number().int().min(200).max(50_000),
+      maxIntervalSec: z.number().int().min(5).max(600),
+    }),
+    mockLocation: z.object({ enabled }),
+    signalGap: z.object({ enabled, minGapMin: z.number().int().min(2).max(240) }),
+    longUnplannedStop: z.object({ enabled, minStopMin: z.number().int().min(5).max(480) }),
+    visitIssues: z.object({ enabled }),
+    offHours: z.object({ enabled }),
+  })
+  .openapi('AnomalyRules', {
+    description: 'Thresholds of the explainable anomaly rules. Each rule can be disabled.',
+  });
+
+/** Update shape: any rule, any of its fields. */
+const rules = anomalyRulesSchema.shape;
+export const anomalyRulesPatchSchema = z
+  .object({
+    impossibleSpeed: rules.impossibleSpeed.partial().strict().optional(),
+    gpsJump: rules.gpsJump.partial().strict().optional(),
+    mockLocation: rules.mockLocation.partial().strict().optional(),
+    signalGap: rules.signalGap.partial().strict().optional(),
+    longUnplannedStop: rules.longUnplannedStop.partial().strict().optional(),
+    visitIssues: rules.visitIssues.partial().strict().optional(),
+    offHours: rules.offHours.partial().strict().optional(),
+  })
+  .strict();
+
 export const organizationSettingsSchema = z
   .object({
     staleAfterSec: z.number().int().min(15).max(3600),
@@ -30,6 +63,7 @@ export const organizationSettingsSchema = z
       radiusM: z.number().int().min(10).max(5000),
       minDwellSec: z.number().int().min(0).max(86_400),
     }),
+    anomalyRules: anomalyRulesSchema,
   })
   .openapi('OrganizationSettings');
 
@@ -57,6 +91,7 @@ export const updateOrganizationBody = z
         telemetryRetentionDays: organizationSettingsSchema.shape.telemetryRetentionDays.optional(),
         workingHours: organizationSettingsSchema.shape.workingHours.optional(),
         geofenceDefaults: organizationSettingsSchema.shape.geofenceDefaults.optional(),
+        anomalyRules: anomalyRulesPatchSchema.optional(),
       })
       .strict()
       .optional(),

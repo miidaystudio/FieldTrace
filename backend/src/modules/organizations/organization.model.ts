@@ -9,6 +9,48 @@ export interface OrganizationSettings {
   telemetryRetentionDays: number;
   workingHours: { start: string; end: string; days: number[] };
   geofenceDefaults: { radiusM: number; minDwellSec: number };
+  /** Thresholds of the explainable anomaly rules (Phase 4). May be absent on older documents. */
+  anomalyRules?: Partial<AnomalyRules>;
+}
+
+/** Per-organization anomaly rule configuration. Each rule can be switched off. */
+export interface AnomalyRules {
+  /** Speed between two fixes (beyond their accuracy) above which travel is implausible. */
+  impossibleSpeed: { enabled: boolean; maxSpeedKmh: number };
+  /** A sudden displacement of at least `minDistanceM` within `maxIntervalSec`. */
+  gpsJump: { enabled: boolean; minDistanceM: number; maxIntervalSec: number };
+  /** The device reported a mock (simulated) location. */
+  mockLocation: { enabled: boolean };
+  /** No GPS for `minGapMin` minutes while on shift (not on break). */
+  signalGap: { enabled: boolean; minGapMin: number };
+  /** Stationary for `minStopMin` minutes outside every client geofence while on shift. */
+  longUnplannedStop: { enabled: boolean; minStopMin: number };
+  /** Visits sent to review or missed. */
+  visitIssues: { enabled: boolean };
+  /** Tracking outside the organization's working hours. */
+  offHours: { enabled: boolean };
+}
+
+export const DEFAULT_ANOMALY_RULES: AnomalyRules = {
+  impossibleSpeed: { enabled: true, maxSpeedKmh: 150 },
+  gpsJump: { enabled: true, minDistanceM: 1000, maxIntervalSec: 30 },
+  mockLocation: { enabled: true },
+  signalGap: { enabled: true, minGapMin: 10 },
+  longUnplannedStop: { enabled: true, minStopMin: 20 },
+  visitIssues: { enabled: true },
+  offHours: { enabled: true },
+};
+
+/** Stored rules merged over the defaults (older organizations have none stored). */
+export function anomalyRulesOf(settings: Pick<OrganizationSettings, 'anomalyRules'>): AnomalyRules {
+  const stored = settings.anomalyRules ?? {};
+  const merged = { ...DEFAULT_ANOMALY_RULES };
+  for (const key of Object.keys(DEFAULT_ANOMALY_RULES) as (keyof AnomalyRules)[]) {
+    const value = stored[key];
+    if (value)
+      (merged as Record<string, object>)[key] = { ...DEFAULT_ANOMALY_RULES[key], ...value };
+  }
+  return merged;
 }
 
 export interface OrganizationDoc {
@@ -59,6 +101,8 @@ const settingsSchema = new Schema<OrganizationSettings>(
         default: DEFAULT_ORG_SETTINGS.geofenceDefaults.minDwellSec,
       },
     },
+    // Free-form here; validated by the API schema and merged over defaults on read.
+    anomalyRules: { type: Schema.Types.Mixed, default: () => ({}) },
   },
   { _id: false },
 );

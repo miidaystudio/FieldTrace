@@ -2,7 +2,7 @@
  * Typed FieldTrace backend contract (subset used by the UI) + endpoint functions.
  * Source of truth: backend/docs/openapi.json and backend/docs/realtime-and-tracking.md.
  */
-import { api, apiAll, apiPage, setSession, type SessionPayload } from './client';
+import { api, apiAll, apiDownload, apiPage, setSession, type SessionPayload } from './client';
 
 // ------------------------------------------------------------------ enums
 
@@ -51,6 +51,18 @@ export interface OrganizationSettings {
   telemetryRetentionDays: number;
   workingHours: { start: string; end: string; days: number[] };
   geofenceDefaults: { radiusM: number; minDwellSec: number };
+  anomalyRules: AnomalyRules;
+}
+
+/** Thresholds of the explainable anomaly rules (Phase 4). */
+export interface AnomalyRules {
+  impossibleSpeed: { enabled: boolean; maxSpeedKmh: number };
+  gpsJump: { enabled: boolean; minDistanceM: number; maxIntervalSec: number };
+  mockLocation: { enabled: boolean };
+  signalGap: { enabled: boolean; minGapMin: number };
+  longUnplannedStop: { enabled: boolean; minStopMin: number };
+  visitIssues: { enabled: boolean };
+  offHours: { enabled: boolean };
 }
 
 export interface OrganizationDto {
@@ -348,7 +360,9 @@ export const authApi = {
 export const organizationApi = {
   get: () => api<OrganizationDto>('/organization'),
   update: (body: Partial<Pick<OrganizationDto, 'name' | 'timezone'>> & {
-    settings?: Partial<OrganizationSettings>;
+    settings?: Partial<Omit<OrganizationSettings, 'anomalyRules'>> & {
+      anomalyRules?: { [K in keyof AnomalyRules]?: Partial<AnomalyRules[K]> };
+    };
   }) => api<OrganizationDto>('/organization', { method: 'PATCH', body }),
 };
 
@@ -455,4 +469,292 @@ export const visitsApi = {
 export const routeAnalysisApi = {
   get: (agentId: string, from: string, to: string) =>
     api<RouteAnalysisDto>(`/agents/${agentId}/route-analysis`, { query: { from, to } }),
+};
+
+// ------------------------------------------------------------------ anomalies (Phase 4)
+
+export type AnomalyType =
+  | 'impossible_speed'
+  | 'gps_jump'
+  | 'mock_location'
+  | 'signal_gap'
+  | 'long_unplanned_stop'
+  | 'visit_issue'
+  | 'off_hours_activity';
+export type AnomalyStatus = 'open' | 'acknowledged' | 'resolved' | 'dismissed';
+export type Severity = 'low' | 'medium' | 'high';
+
+export interface AnomalyDto {
+  id: string;
+  agentId: string;
+  agent: { id: string; name: string } | null;
+  teamId: string | null;
+  sessionId: string | null;
+  type: AnomalyType;
+  severity: Severity;
+  status: AnomalyStatus;
+  title: string;
+  explanation: string;
+  metrics: Record<string, string | number | boolean | null>;
+  position: LatLng | null;
+  locationId: string | null;
+  visitId: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  occurrences: number;
+  acknowledged: { by: { id: string; name: string }; at: string } | null;
+  resolution: {
+    by: { id: string; name: string };
+    at: string;
+    status: 'resolved' | 'dismissed';
+    note: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnomalyStatsDto {
+  active: number;
+  byStatus: Record<AnomalyStatus, number>;
+  activeByType: Record<AnomalyType, number>;
+  activeBySeverity: Record<Severity, number>;
+}
+
+export const anomaliesApi = {
+  /** Most recent anomalies (all statuses), newest activity first. */
+  recent: (limit = 100) =>
+    apiPage<AnomalyDto>('/anomalies', { query: { limit, sort: '-lastSeenAt' } }).then((r) => r.data),
+  stats: () => api<AnomalyStatsDto>('/anomalies/stats'),
+  setStatus: (id: string, status: 'acknowledged' | 'resolved' | 'dismissed', note?: string) =>
+    api<AnomalyDto>(`/anomalies/${id}/status`, {
+      method: 'POST',
+      body: { status, note: note?.trim() || undefined },
+    }),
+};
+
+// ------------------------------------------------------------------ analytics & reports (Phase 4)
+
+export interface AnalyticsRange {
+  from?: string;
+  to?: string;
+  teamId?: string;
+}
+
+export interface VisitCounts {
+  total: number;
+  verified: number;
+  needsReview: number;
+  rejected: number;
+  missed: number;
+  inProgress: number;
+}
+
+export interface AnalyticsSummaryDto {
+  from: string;
+  to: string;
+  teamId: string | null;
+  agentsActive: number;
+  distanceKm: number;
+  shiftHours: number;
+  visits: VisitCounts;
+  verificationRate: number | null;
+  onTimeRate: number | null;
+  avgDwellMin: number | null;
+  assignments: { total: number; completed: number; completionRate: number | null };
+  anomalies: { total: number; high: number; byType: Record<AnomalyType, number> };
+  generatedAt: string;
+}
+
+export interface AnalyticsDayDto {
+  day: string;
+  agentsActive: number;
+  distanceKm: number;
+  shiftHours: number;
+  visits: VisitCounts;
+  verificationRate: number | null;
+  onTimeRate: number | null;
+  assignmentsTotal: number;
+  assignmentsCompleted: number;
+  anomalies: number;
+}
+
+export interface AnalyticsAgentDto {
+  agentId: string;
+  name: string;
+  teamId: string | null;
+  daysActive: number;
+  distanceKm: number;
+  shiftHours: number;
+  visits: VisitCounts;
+  verificationRate: number | null;
+  onTimeRate: number | null;
+  assignmentsTotal: number;
+  assignmentsCompleted: number;
+  anomalies: number;
+  highAnomalies: number;
+}
+
+export type ReportType = 'visits' | 'anomalies' | 'agent-daily';
+
+const rangeQuery = (range: AnalyticsRange) => ({
+  from: range.from,
+  to: range.to,
+  teamId: range.teamId,
+});
+
+export const analyticsApi = {
+  summary: (range: AnalyticsRange) =>
+    api<AnalyticsSummaryDto>('/analytics/summary', { query: rangeQuery(range) }),
+  daily: (range: AnalyticsRange) =>
+    api<AnalyticsDayDto[]>('/analytics/daily', { query: rangeQuery(range) }),
+  agents: (range: AnalyticsRange) =>
+    api<AnalyticsAgentDto[]>('/analytics/agents', { query: rangeQuery(range) }),
+  /** Downloads a CSV report through the authenticated client and saves it. */
+  downloadReport: async (type: ReportType, range: AnalyticsRange) => {
+    const { blob, filename } = await apiDownload(`/reports/${type}`, rangeQuery(range));
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename ?? `fieldtrace-${type}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+};
+
+// ------------------------------------------------------------------ notifications (Phase 5)
+
+export type NotificationKind = 'anomaly' | 'assignment_overdue' | 'test';
+export type DeliveryStatus = 'pending' | 'sent' | 'logged' | 'skipped' | 'failed';
+
+export interface NotificationDto {
+  id: string;
+  kind: NotificationKind;
+  severity: Severity;
+  title: string;
+  body: string;
+  link: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  readAt: string | null;
+  emailStatus: DeliveryStatus;
+  createdAt: string;
+}
+
+export interface NotificationPrefs {
+  events: { anomaly: boolean; assignment_overdue: boolean };
+  email: { enabled: boolean; minSeverity: Severity };
+}
+
+export interface WebhookConfigDto {
+  url: string;
+  enabled: boolean;
+  minSeverity: Severity;
+  secretHint: string;
+  /** Only right after creation / rotation. */
+  secret?: string;
+  updatedAt: string;
+}
+
+export interface WebhookDeliveryDto {
+  id: string;
+  event: string;
+  status: DeliveryStatus;
+  attempts: number;
+  responseStatus: number | null;
+  lastError: string | null;
+  createdAt: string;
+  sentAt: string | null;
+}
+
+export const notificationsApi = {
+  recent: (limit = 30) =>
+    apiPage<NotificationDto>('/notifications', { query: { limit } }).then((r) => r.data),
+  unreadCount: () => api<{ unread: number }>('/notifications/unread-count').then((r) => r.unread),
+  markRead: (id: string) => api<NotificationDto>(`/notifications/${id}/read`, { method: 'POST' }),
+  markAllRead: () => api<{ updated: number }>('/notifications/read-all', { method: 'POST' }),
+  prefs: () => api<NotificationPrefs>('/notifications/preferences'),
+  updatePrefs: (body: { events?: Partial<NotificationPrefs['events']>; email?: Partial<NotificationPrefs['email']> }) =>
+    api<NotificationPrefs>('/notifications/preferences', { method: 'PATCH', body }),
+  webhook: () => api<WebhookConfigDto>('/notifications/webhook'),
+  putWebhook: (body: { url: string; enabled: boolean; minSeverity: Severity }) =>
+    api<WebhookConfigDto>('/notifications/webhook', { method: 'PUT', body }),
+  deleteWebhook: () => api<void>('/notifications/webhook', { method: 'DELETE' }),
+  rotateSecret: () => api<WebhookConfigDto>('/notifications/webhook/rotate-secret', { method: 'POST' }),
+  testWebhook: () =>
+    api<{ ok: boolean; status: number | null; error: string | null }>('/notifications/webhook/test', {
+      method: 'POST',
+    }),
+  deliveries: () => api<WebhookDeliveryDto[]>('/notifications/webhook/deliveries'),
+};
+
+// ------------------------------------------------------------------ route optimization (Phase 5)
+
+export interface PlannedStopDto {
+  sequence: number;
+  assignmentId: string;
+  locationId: string;
+  locationName: string | null;
+  title: string | null;
+  position: LatLng;
+  priority: AssignmentPriority;
+  window: { start: string; end: string } | null;
+  serviceSec: number;
+  eta: string;
+  departure: string;
+  waitSec: number;
+  lateSec: number;
+  legDistanceM: number;
+  legDurationSec: number;
+}
+
+export interface RouteTotals {
+  distanceM: number;
+  durationSec: number;
+  travelSec: number;
+  waitSec: number;
+  lateSec: number;
+  lateStops: number;
+}
+
+export interface RoutePlanDto {
+  id: string | null;
+  agentId: string;
+  teamId: string | null;
+  date: string;
+  status: 'active' | 'superseded' | null;
+  provider: 'openrouteservice' | 'builtin';
+  fallbackReason: string | null;
+  start: { position: LatLng; source: 'current' | 'last_known' | 'custom' | 'first_stop' };
+  departAt: string;
+  returnToStart: boolean;
+  stops: PlannedStopDto[];
+  totals: RouteTotals;
+  baseline: RouteTotals | null;
+  geometry: LatLng[];
+  warnings: string[];
+  createdAt: string | null;
+}
+
+export interface PlanRouteRequest {
+  agentId: string;
+  date?: string;
+  assignmentIds?: string[];
+  start?: { type: 'current' } | { type: 'first_stop' } | { type: 'position'; position: LatLng };
+  departAt?: string;
+  serviceMin?: number;
+  returnToStart?: boolean;
+}
+
+export const routesApi = {
+  optimize: (body: PlanRouteRequest) => api<RoutePlanDto>('/routes/optimize', { method: 'POST', body }),
+  save: (body: PlanRouteRequest) => api<RoutePlanDto>('/routes', { method: 'POST', body }),
+  list: (date?: string) => api<RoutePlanDto[]>('/routes', { query: { date } }),
+  /** The agent's plan for the day, or null if none was saved. */
+  mine: (date?: string) =>
+    api<RoutePlanDto>('/routes/mine', { query: { date } }).catch((error: unknown) => {
+      if ((error as { status?: number }).status === 404) return null;
+      throw error;
+    }),
 };

@@ -59,6 +59,12 @@ export interface RouteDefinition<
   responseDescription?: string;
   /** Additional documented error statuses (400/401/403/404/500 are inferred). */
   errors?: number[];
+  /**
+   * Non-JSON download (e.g. `text/csv`): the handler writes the response itself through `res`
+   * (streaming allowed) and returns nothing. Errors before the first write still use the JSON
+   * error envelope.
+   */
+  produces?: 'text/csv';
   handler: (input: HandlerInput<B, Q, P, A>) => Promise<HandlerResult<R, L>>;
 }
 
@@ -133,6 +139,11 @@ export function createModuleRouter(options: { basePath: string; tag: string }): 
       const result = (await definition.handler(input)) as
         { data: unknown; meta?: PageMeta } | undefined;
 
+      if (definition.produces) {
+        if (!res.writableEnded) res.end();
+        return;
+      }
+
       if (!definition.response || status === 204) {
         res.status(204).end();
         return;
@@ -183,7 +194,12 @@ function registerOpenApi(
   if (definition.params) errorStatuses.add(404);
 
   const responses: Record<string, object> = {};
-  if (definition.response && status !== 204) {
+  if (definition.produces) {
+    responses[200] = {
+      description: definition.responseDescription ?? 'File download',
+      content: { [definition.produces]: { schema: z.string() } },
+    };
+  } else if (definition.response && status !== 204) {
     const envelope = definition.list
       ? z.object({ data: z.array(definition.response), meta: pageMetaSchema })
       : z.object({ data: definition.response });

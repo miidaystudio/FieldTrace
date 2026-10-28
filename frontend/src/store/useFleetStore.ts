@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import {
   agentsApi,
+  anomaliesApi,
+  notificationsApi,
+  type AnomalyDto,
+  type NotificationDto,
   assignmentsApi,
   fleetApi,
   locationsApi,
@@ -17,7 +21,9 @@ import { errorMessage } from '../api/client';
 import {
   applyAgentStatus,
   applyLocationUpdate,
+  isActiveAnomaly,
   toAgent,
+  toAnomalyEvent,
   toGeofence,
   todayIn,
 } from '../api/adapters';
@@ -38,8 +44,12 @@ interface FleetState {
   visits: VisitDto[];
   /** Most recent geofence entries/exits seen on the socket (newest first). */
   geofenceFeed: GeofenceTransitionPayload[];
-  /** Anomaly detection ships in backend Phase 4. */
+  /** Most recent anomalies (all statuses, newest activity first), kept live via the socket. */
   anomalies: AnomalyEvent[];
+  anomaliesError: string | null;
+  /** My recent notifications (newest first) and the unread count, kept live via the socket. */
+  notifications: NotificationDto[];
+  unreadNotifications: number;
   kpis: KPIOverview;
 
   loadState: LoadState;
@@ -71,6 +81,12 @@ interface FleetState {
   handleAssignmentUpdated: (assignment: AssignmentDto) => void;
   handleGeofenceTransition: (event: GeofenceTransitionPayload) => void;
   reloadVisits: () => Promise<void>;
+  reloadAnomalies: () => Promise<void>;
+  handleAnomaly: (anomaly: AnomalyDto) => void;
+  reloadNotifications: () => Promise<void>;
+  handleNotification: (notification: NotificationDto) => void;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
   setSocketState: (state: SocketState) => void;
   reset: () => void;
 
@@ -80,8 +96,9 @@ interface FleetState {
   setSelectedAnomaly: (id: string | null) => void;
   setStatusFilter: (status: string) => void;
   setSearchQuery: (query: string) => void;
-  resolveAnomaly: (anomalyId: string, resolutionNote: string) => void;
-  dismissAnomaly: (anomalyId: string) => void;
+  acknowledgeAnomaly: (anomalyId: string) => Promise<void>;
+  resolveAnomaly: (anomalyId: string, resolutionNote: string) => Promise<void>;
+  dismissAnomaly: (anomalyId: string, note?: string) => Promise<void>;
 }
 
 function computeKpis(
@@ -102,7 +119,7 @@ function computeKpis(
     pendingVisitsToday: visits.filter((v) => v.status === 'needs_review').length,
     assignmentsToday: assignments.length,
     completedAssignmentsToday: assignments.filter((a) => a.status === 'completed').length,
-    openAnomalies: anomalies.filter((a) => a.status === 'open' || a.status === 'investigating').length,
+    openAnomalies: anomalies.filter(isActiveAnomaly).length,
     complianceScore: null,
     avgSpeedKmH: moving.length ? Math.round(moving.reduce((sum, a) => sum + a.speedKmH, 0) / moving.length) : null,
     totalDistanceKmToday: null,
@@ -137,6 +154,9 @@ const initialData = {
   visits: [] as VisitDto[],
   geofenceFeed: [] as GeofenceTransitionPayload[],
   anomalies: [] as AnomalyEvent[],
+  anomaliesError: null as string | null,
+  notifications: [] as NotificationDto[],
+  unreadNotifications: 0,
   kpis: EMPTY_KPIS,
   loadState: 'idle' as LoadState,
   loadError: null as string | null,
@@ -191,6 +211,8 @@ export const useFleetStore = create<FleetState>((set, get) => {
         set({ directory, locations, assignmentsToday, visits, today });
         const { agents, asOf } = await buildAgents(directory, assignmentsToday);
         set({ ...withDerived(agents), loadState: 'ready', lastSnapshotAt: asOf });
+        void get().reloadAnomalies();
+        void get().reloadNotifications();
       } catch (error) {
         set({ loadState: 'error', loadError: errorMessage(error) });
       }
@@ -286,6 +308,63 @@ export const useFleetStore = create<FleetState>((set, get) => {
       });
     },
 
+    reloadAnomalies: async () => {
+      try {
+        const anomalies = (await anomaliesApi.recent(100)).map(toAnomalyEvent);
+        set(withDerived(get().agents, { anomalies, anomaliesError: null }));
+      } catch (error) {
+        set({ anomaliesError: errorMessage(error) });
+      }
+    },
+
+    handleAnomaly: (dto) => {
+      const event = toAnomalyEvent(dto);
+      const others = get().anomalies.filter((a) => a.id !== event.id);
+      const anomalies = [event, ...others]
+        .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+        .slice(0, 200);
+      set(withDerived(get().agents, { anomalies, eventsReceived: get().eventsReceived + 1 }));
+    },
+
+    reloadNotifications: async () => {
+      try {
+        const [notifications, unreadNotifications] = await Promise.all([
+          notificationsApi.recent(30),
+          notificationsApi.unreadCount(),
+        ]);
+        set({ notifications, unreadNotifications });
+      } catch {
+        // The bell simply stays empty; nothing else depends on it.
+      }
+    },
+
+    handleNotification: (notification) => {
+      if (get().notifications.some((n) => n.id === notification.id)) return;
+      set({
+        notifications: [notification, ...get().notifications].slice(0, 50),
+        unreadNotifications: get().unreadNotifications + (notification.readAt ? 0 : 1),
+      });
+    },
+
+    markNotificationRead: async (id) => {
+      const target = get().notifications.find((n) => n.id === id);
+      if (!target || target.readAt) return;
+      const updated = await notificationsApi.markRead(id);
+      set({
+        notifications: get().notifications.map((n) => (n.id === id ? updated : n)),
+        unreadNotifications: Math.max(0, get().unreadNotifications - 1),
+      });
+    },
+
+    markAllNotificationsRead: async () => {
+      await notificationsApi.markAllRead();
+      const now = new Date().toISOString();
+      set({
+        notifications: get().notifications.map((n) => (n.readAt ? n : { ...n, readAt: now })),
+        unreadNotifications: 0,
+      });
+    },
+
     setSocketState: (socketState) => set({ socketState }),
     reset: () => set({ ...initialData, selectedAgentId: null }),
 
@@ -296,15 +375,14 @@ export const useFleetStore = create<FleetState>((set, get) => {
     setStatusFilter: (status) => set({ statusFilter: status }),
     setSearchQuery: (query) => set({ searchQuery: query }),
 
-    // Anomaly review is wired to the backend in Phase 4. Until then the list is empty and these
-    // only update local state.
-    resolveAnomaly: (anomalyId, note) =>
-      set((state) => ({
-        anomalies: state.anomalies.map((a) => (a.id === anomalyId ? { ...a, status: 'resolved', actionTaken: note } : a)),
-      })),
-    dismissAnomaly: (anomalyId) =>
-      set((state) => ({
-        anomalies: state.anomalies.map((a) => (a.id === anomalyId ? { ...a, status: 'dismissed' } : a)),
-      })),
+    acknowledgeAnomaly: async (anomalyId) => {
+      get().handleAnomaly(await anomaliesApi.setStatus(anomalyId, 'acknowledged'));
+    },
+    resolveAnomaly: async (anomalyId, note) => {
+      get().handleAnomaly(await anomaliesApi.setStatus(anomalyId, 'resolved', note));
+    },
+    dismissAnomaly: async (anomalyId, note) => {
+      get().handleAnomaly(await anomaliesApi.setStatus(anomalyId, 'dismissed', note));
+    },
   };
 });

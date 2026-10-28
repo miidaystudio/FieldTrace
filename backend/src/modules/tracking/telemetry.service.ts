@@ -1,5 +1,6 @@
 import { env } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
+import { processTelemetryAnomalies } from '../anomalies/anomaly.service.js';
 import { processGeofenceSamples } from '../visits/geofence-engine.js';
 import { notFound } from '../../lib/errors.js';
 import { publishLocationUpdate } from '../../realtime/publisher.js';
@@ -163,6 +164,7 @@ async function updateLivePosition(
   const agentId = profile._id.toString();
   const teamId = profile.teamId ? profile.teamId.toString() : null;
   let prev: LiveFix | null = (await getLatestFixes(orgId, [agentId])).get(agentId) ?? null;
+  const previous = prev;
   // An older-than-live batch (late upload) never moves the live marker backwards.
   const fresh = samples.filter((sample) => !prev || sample.recordedAtMs > prev.recordedAt);
   if (fresh.length === 0) return;
@@ -246,6 +248,21 @@ async function updateLivePosition(
   } catch (error) {
     logger.error({ err: error, agentId }, 'Geofence processing failed');
   }
+
+  // Explainable anomaly rules (speed, jumps, mock location, off-hours). Never throws.
+  await processTelemetryAnomalies(
+    orgId,
+    { _id: profile._id, teamId: profile.teamId },
+    sessionId,
+    previous,
+    fresh.map((sample) => ({
+      lat: sample.lat,
+      lng: sample.lng,
+      accuracyM: sample.accuracyM,
+      recordedAtMs: sample.recordedAtMs,
+      isMock: sample.flags.includes('mock_location'),
+    })),
+  );
 }
 
 async function publishStatusIfChanged(orgId: string, profile: AgentRef): Promise<void> {

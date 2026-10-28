@@ -1,6 +1,33 @@
 import { Schema, model, type Types } from 'mongoose';
 import { tenantScopedPlugin } from '../../lib/tenancy.js';
-import { ROLES, USER_STATUSES, type Role, type UserStatus } from '../../shared/enums.js';
+import {
+  ROLES,
+  USER_STATUSES,
+  type Role,
+  type Severity,
+  type UserStatus,
+} from '../../shared/enums.js';
+
+/** Which notifications a user receives (Phase 5). Missing on older users → defaults. */
+export interface NotificationPrefs {
+  events: { anomaly: boolean; assignment_overdue: boolean };
+  email: { enabled: boolean; minSeverity: Severity };
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  events: { anomaly: true, assignment_overdue: true },
+  email: { enabled: true, minSeverity: 'high' },
+};
+
+export function notificationPrefsOf(user: {
+  notificationPrefs?: Partial<NotificationPrefs> | null;
+}): NotificationPrefs {
+  const stored = user.notificationPrefs ?? {};
+  return {
+    events: { ...DEFAULT_NOTIFICATION_PREFS.events, ...stored.events },
+    email: { ...DEFAULT_NOTIFICATION_PREFS.email, ...stored.email },
+  };
+}
 
 export interface UserDoc {
   _id: Types.ObjectId;
@@ -14,6 +41,7 @@ export interface UserDoc {
   /** Set when an admin/manager issues a temporary password. Blocks most routes until changed. */
   mustChangePassword: boolean;
   lastLoginAt: Date | null;
+  notificationPrefs?: Partial<NotificationPrefs> | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +56,7 @@ const userSchema = new Schema<UserDoc>(
     status: { type: String, enum: USER_STATUSES, required: true, default: 'active' },
     mustChangePassword: { type: Boolean, required: true, default: false },
     lastLoginAt: { type: Date, default: null },
+    notificationPrefs: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true },
 );

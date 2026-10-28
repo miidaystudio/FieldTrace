@@ -5,6 +5,8 @@
 import type {
   AgentDto,
   AgentStatusPayload,
+  AnomalyDto,
+  AnomalyType,
   AssignmentDto,
   Connectivity,
   LiveAgentDto,
@@ -16,7 +18,14 @@ import type {
   VehicleType,
   VisitReviewReason,
 } from './backend';
-import type { Agent, AgentStatus, Geofence, RouteStop, RouteWaypoint } from './types';
+import type {
+  Agent,
+  AgentStatus,
+  AnomalyEvent,
+  Geofence,
+  RouteStop,
+  RouteWaypoint,
+} from './types';
 
 const MPS_TO_KMH = 3.6;
 
@@ -275,3 +284,72 @@ export function timeAgo(iso: string | null | undefined): string {
   if (sec < 86_400) return `${Math.round(sec / 3600)}h ago`;
   return `${Math.round(sec / 86_400)}d ago`;
 }
+
+// ------------------------------------------------------------------ anomalies
+
+export const ANOMALY_LABELS: Record<AnomalyType, string> = {
+  impossible_speed: 'Impossible speed',
+  gps_jump: 'GPS jump',
+  mock_location: 'Mock location',
+  signal_gap: 'Signal gap',
+  long_unplanned_stop: 'Long unplanned stop',
+  visit_issue: 'Visit issue',
+  off_hours_activity: 'Off-hours activity',
+};
+
+/** `speedKmh` → `Speed (km/h)`, `gapMin` → `Gap (min)` — metric keys carry their unit. */
+export function metricLabel(key: string): string {
+  const units: [RegExp, string][] = [
+    [/Kmh$/, 'km/h'],
+    [/M$/, 'm'],
+    [/Sec$/, 's'],
+    [/Min$/, 'min'],
+  ];
+  let unit = '';
+  let base = key;
+  for (const [pattern, label] of units) {
+    if (pattern.test(key)) {
+      unit = label;
+      base = key.replace(pattern, '');
+      break;
+    }
+  }
+  const words = base.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  const text = words.charAt(0).toUpperCase() + words.slice(1);
+  return unit ? `${text} (${unit})` : text;
+}
+
+export function formatMetric(value: string | number | boolean | null): string {
+  if (value === null) return '—';
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  return String(value);
+}
+
+export function toAnomalyEvent(dto: AnomalyDto): AnomalyEvent {
+  return {
+    id: dto.id,
+    agentId: dto.agentId,
+    agentName: dto.agent?.name ?? 'Unknown agent',
+    type: dto.type,
+    severity: dto.severity,
+    timestamp: dto.lastSeenAt,
+    firstSeenAt: dto.firstSeenAt,
+    occurrences: dto.occurrences,
+    lat: dto.position?.lat ?? null,
+    lng: dto.position?.lng ?? null,
+    description: dto.title,
+    explanation: dto.explanation,
+    metricDetails: dto.metrics,
+    status: dto.status,
+    acknowledgedBy: dto.acknowledged?.by.name,
+    actionTaken: dto.resolution?.note ?? undefined,
+    resolvedBy: dto.resolution?.by.name,
+    visitId: dto.visitId,
+  };
+}
+
+export const isActiveAnomaly = (a: Pick<AnomalyEvent, 'status'>) =>
+  a.status === 'open' || a.status === 'acknowledged';

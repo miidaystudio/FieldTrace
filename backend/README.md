@@ -13,12 +13,17 @@ monolith built with Node.js, Express 5, TypeScript, MongoDB (Mongoose) and Zod.
 - **Frontend integration contract:** [`docs/api-conventions.md`](docs/api-conventions.md)
 - **Real-time contract (driver app + live map + Socket.IO):** [`docs/realtime-and-tracking.md`](docs/realtime-and-tracking.md)
 - **Visits & geofencing contract:** [`docs/visits-and-geofencing.md`](docs/visits-and-geofencing.md)
+- **Anomalies, analytics & reports:** [`docs/anomalies-and-analytics.md`](docs/anomalies-and-analytics.md)
+- **Route optimization & notifications:** [`docs/routing-and-notifications.md`](docs/routing-and-notifications.md)
+- **Deployment & operations:** [`docs/deployment.md`](docs/deployment.md)
 - **OpenAPI spec:** [`docs/openapi.json`](docs/openapi.json) · live Swagger UI at `/api/docs`
 
 ## Quick start
 
 Requirements: Node.js ≥ 22.12 (developed on 24), MongoDB ≥ 6 (local `mongod` or Atlas — the
-location history uses a time-series collection), and Docker for Redis.
+location history uses a time-series collection), and Docker for Redis (optional in development:
+`REDIS_URL=memory` uses an in-process stand-in; production refuses it and fails fast if Redis is
+unreachable).
 
 ```bash
 cd backend
@@ -45,34 +50,40 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 | `npm run dev`                                                   | Watch mode (tsx)                                             |
 | `npm run build` / `npm start`                                   | Compile to `dist/` and run                                   |
 | `npm test`                                                      | Vitest + Supertest, in-memory MongoDB + Docker Redis (db 15) |
+| `TEST_REDIS_URL=memory npm test`                                | Same, without Docker (in-process Redis stand-in)             |
 | `npm run typecheck` · `npm run lint` · `npm run format`         | Quality gates                                                |
 | `npm run seed [-- --reset]`                                     | Demo data; `--reset` deletes _only_ the demo orgs first      |
 | `npm run openapi:export`                                        | Regenerate `docs/openapi.json`                               |
 | `npm run redis:start`                                           | Start (or create) the `fieldtrace-redis` Docker container    |
 | `npm run simulate [-- --agents 50 --interval 5 --duration 120]` | Simulated agents via the real API (needs `npm run dev`)      |
+| `npm run simulate -- --rogue 3`                                 | …with 3 misbehaving agents (mock GPS, jumps, silence)        |
 
 ### Environment variables
 
 See [`.env.example`](.env.example) for descriptions. Required: `MONGODB_URI`,
 `JWT_ACCESS_SECRET` (≥ 32 chars). The process refuses to start with invalid configuration.
 
-| Variable                                                  | Default                                       | Notes                                                |
-| --------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------- |
-| `PORT`                                                    | 4000                                          |                                                      |
-| `MONGODB_URI`                                             | —                                             | `mongodb://` or `mongodb+srv://`                     |
-| `JWT_ACCESS_SECRET`                                       | —                                             | HS256 signing key                                    |
-| `JWT_ACCESS_TTL_SEC`                                      | 900                                           | access token lifetime                                |
-| `REFRESH_TOKEN_TTL_DAYS`                                  | 30                                            | absolute session lifetime                            |
-| `REDIS_URL` / `REDIS_KEY_PREFIX`                          | `redis://127.0.0.1:6380` / `ft:`              | live state, de-duplication, status locks             |
-| `CORS_ORIGINS`                                            | `http://localhost:3000,http://localhost:5173` | comma-separated (HTTP + Socket.IO)                   |
-| `COOKIE_SECURE` / `COOKIE_SAMESITE`                       | `false` / `lax`                               | use `true` + HTTPS in production                     |
-| `TRUST_PROXY`                                             | 0                                             | proxy hops (for correct client IPs / rate limiting)  |
-| `AUTH_RATE_LIMIT_PER_MIN`                                 | 10                                            | per IP, on login/register/refresh                    |
-| `SEED_DEFAULT_PASSWORD`                                   | —                                             | dev seeding only                                     |
-| `TELEMETRY_MAX_BATCH`                                     | 50                                            | samples per `POST /telemetry`                        |
-| `TELEMETRY_MAX_AGE_SEC` / `TELEMETRY_MAX_FUTURE_SKEW_SEC` | 86400 / 120                                   | timestamp acceptance window                          |
-| `TELEMETRY_RETENTION_DAYS`                                | 90                                            | history TTL (applied when the collection is created) |
-| `STATUS_SWEEP_INTERVAL_SEC`                               | 15                                            | online → stale → offline re-evaluation               |
+| Variable                                                  | Default                                       | Notes                                                    |
+| --------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------- |
+| `PORT`                                                    | 4000                                          |                                                          |
+| `MONGODB_URI`                                             | —                                             | `mongodb://` or `mongodb+srv://`                         |
+| `JWT_ACCESS_SECRET`                                       | —                                             | HS256 signing key                                        |
+| `JWT_ACCESS_TTL_SEC`                                      | 900                                           | access token lifetime                                    |
+| `REFRESH_TOKEN_TTL_DAYS`                                  | 30                                            | absolute session lifetime                                |
+| `REDIS_URL` / `REDIS_KEY_PREFIX`                          | `memory` / `ft:`                              | `redis://127.0.0.1:6380` for Docker; `memory` = dev only |
+| `CORS_ORIGINS`                                            | `http://localhost:3000,http://localhost:5173` | comma-separated (HTTP + Socket.IO)                       |
+| `COOKIE_SECURE` / `COOKIE_SAMESITE`                       | `false` / `lax`                               | `true` is **required** in production (HTTPS)             |
+| `TRUST_PROXY`                                             | 0                                             | proxy hops (for correct client IPs / rate limiting)      |
+| `AUTH_RATE_LIMIT_PER_MIN`                                 | 10                                            | per IP, on login/register/refresh                        |
+| `SEED_DEFAULT_PASSWORD`                                   | —                                             | dev seeding only                                         |
+| `TELEMETRY_MAX_BATCH`                                     | 50                                            | samples per `POST /telemetry`                            |
+| `TELEMETRY_MAX_AGE_SEC` / `TELEMETRY_MAX_FUTURE_SKEW_SEC` | 86400 / 120                                   | timestamp acceptance window                              |
+| `TELEMETRY_RETENTION_DAYS`                                | 90                                            | history TTL (applied when the collection is created)     |
+| `STATUS_SWEEP_INTERVAL_SEC`                               | 15                                            | online → stale → offline re-evaluation                   |
+| `AUDIT_RETENTION_DAYS` / `NOTIFICATION_RETENTION_DAYS`    | 0 (keep) / 90                                 | retention job every 6 h                                  |
+| `ORS_API_KEY` / `ORS_BASE_URL`                            | — / openrouteservice.org                      | road routing; without key: built-in estimates            |
+| `ROUTING_AVG_SPEED_KMH` / `ROUTING_ROAD_FACTOR`           | 25 / 1.3                                      | built-in optimizer                                       |
+| `RESEND_API_KEY` / `EMAIL_FROM` / `APP_URL`               | — / alerts@… / http://localhost:3000          | email alerts; without key emails are only logged         |
 
 ## Architecture
 
@@ -147,12 +158,12 @@ AuditLog. The API's `agentId` is always the **AgentProfile id**.
 
 - **No transactions:** multi-document creates (org + admin, user + agent profile) use compensating
   deletes so a standalone dev `mongod` works. Switch to transactions if a replica set is guaranteed.
-- **Single instance for realtime:** Socket.IO has no Redis adapter yet and the auth rate limiter is
-  in-memory; both are needed before running several API instances (Phase 5). The status sweeper
-  already uses a Redis lock.
-- **History retention** is one collection-wide TTL (`TELEMETRY_RETENTION_DAYS`); the per-org
-  `telemetryRetentionDays` setting is not enforced yet. Changing the env var later requires a
-  `collMod` on `location_telemetry`.
+- **Several instances:** with a real Redis, Socket.IO uses the Redis adapter and the auth rate
+  limiter a Redis store; background jobs take Redis locks. On the in-memory Redis (development) it
+  is single-instance.
+- **History retention:** per-org `telemetryRetentionDays` is enforced by the retention job; the
+  collection-wide TTL (`TELEMETRY_RETENTION_DAYS`) is the upper bound. Changing the env var later
+  requires a `collMod` on `location_telemetry`.
 - **Logout/deactivation vs. open sockets:** HTTP is cut off immediately; an already-connected
   socket keeps receiving until its access token expires (≤ 15 min) — then `auth:expired`.
 - **Manager rooms** are computed at connect; team membership changes apply on reconnect.
@@ -160,7 +171,6 @@ AuditLog. The API's `agentId` is always the **AgentProfile id**.
 - **Refresh CSRF:** mitigated by `SameSite=Lax` + path-scoped cookie; revisit if the frontend is
   served cross-site (`SameSite=None`).
 - **Audit logs** have no retention policy yet (no TTL). Writes are best-effort (logged on failure).
-- `overdue` status is reserved for the Phase 3 deadline sweep; nothing sets it yet.
 - Email delivery (invites/reset links) is out of scope; admins issue temporary passwords.
 
 ## Testing
@@ -169,11 +179,13 @@ AuditLog. The API's `agentId` is always the **AgentProfile id**.
 npm test
 ```
 
-Runs 153 unit and integration tests against `mongodb-memory-server` (downloads a MongoDB binary on
+Runs 198 unit and integration tests against `mongodb-memory-server` (downloads a MongoDB binary on
 first run) and the Docker Redis (`npm run redis:start`; tests use database 15 with a unique key
 prefix per file and clean up after themselves; override with `TEST_REDIS_URL`). Coverage includes: register/login/refresh rotation/reuse detection/logout, forced
 password change, immediate deactivation and role changes, **cross-organization access on every
 resource**, the tenancy guard, manager team scoping, role gates, geofence validation, radius
 search, assignment state machine and audit trail; shifts, telemetry validation/idempotency/
 out-of-order handling, live map scope, track pagination, connectivity sweeps, and Socket.IO auth +
-room scoping across roles and organizations.
+room scoping across roles and organizations; geofencing and visits; anomaly rules, merging,
+review workflow and scoping; analytics rollups and CSV reports. Without Docker, run
+`TEST_REDIS_URL=memory npm test` (PowerShell: `$env:TEST_REDIS_URL='memory'; npm test`).

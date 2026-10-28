@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { Server } from 'socket.io';
 import { logger } from '../lib/logger.js';
+import type { NotificationDto } from '../modules/notifications/notification.schemas.js';
+import type { RoutePlanDto } from '../modules/routing/route.schemas.js';
 import {
   rooms,
   type AgentStatusPayload,
+  type AnomalyPayload,
   type AssignmentUpdatedPayload,
   type GeofenceTransitionPayload,
   type VisitUpdatedPayload,
@@ -88,5 +91,45 @@ export function publishAssignmentUpdated(orgId: string, data: AssignmentUpdatedP
     );
   } catch (error) {
     logger.error({ err: error }, 'Failed to publish assignment:updated');
+  }
+}
+
+/** Staff-only: org admins and managers of the agent's team (the agent's own room is excluded). */
+export function publishAnomaly(
+  orgId: string,
+  kind: 'created' | 'updated',
+  data: AnomalyPayload,
+): void {
+  const type = kind === 'created' ? 'anomaly:created' : 'anomaly:updated';
+  try {
+    if (!io) return;
+    let target = io.to(rooms.organization(orgId));
+    if (data.teamId) target = target.to(rooms.team(orgId, data.teamId));
+    target.emit(type, envelope(type, data));
+  } catch (error) {
+    logger.error({ err: error }, `Failed to publish ${type}`);
+  }
+}
+
+/** One user's personal room only. */
+export function publishNotification(orgId: string, userId: string, data: NotificationDto): void {
+  try {
+    io?.to(rooms.user(orgId, userId)).emit(
+      'notification:created',
+      envelope('notification:created', data),
+    );
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to publish notification:created');
+  }
+}
+
+export function publishRouteUpdated(orgId: string, data: RoutePlanDto): void {
+  try {
+    audience(orgId, data.agentId, data.teamId)?.emit(
+      'route:updated',
+      envelope('route:updated', data),
+    );
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to publish route:updated');
   }
 }

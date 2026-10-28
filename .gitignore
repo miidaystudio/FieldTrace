@@ -34,3 +34,6 @@ lerna-debug.log*
 
 # Claude Code (local worktrees, settings)
 .claude/
+
+# Production secrets for deploy/docker-compose.yml
+deploy/.env.production

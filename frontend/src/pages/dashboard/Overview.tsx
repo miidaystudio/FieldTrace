@@ -39,7 +39,7 @@ export const Overview: React.FC = () => {
   const movingAgents = agents.filter((a) => a.status === 'moving');
   const idleAgents = agents.filter((a) => a.status === 'idle' || a.status === 'stopped');
   const flaggedAgents = agents.filter((a) => a.status === 'flagged');
-  const openAnomalies = anomalies.filter((a) => a.status === 'open' || a.status === 'investigating');
+  const openAnomalies = anomalies.filter((a) => a.status === 'open' || a.status === 'acknowledged');
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
@@ -80,10 +80,14 @@ export const Overview: React.FC = () => {
             </div>
             <div>
               <div className="text-sm font-bold text-white flex items-center gap-2">
-                <span>{openAnomalies.length} Critical Operational Anomalies Require Review</span>
-                <span className="text-[10px] bg-rose-500/30 text-rose-300 font-mono px-2 py-0.5 rounded">
-                  HIGH PRIORITY
+                <span>
+                  {openAnomalies.length} {openAnomalies.length === 1 ? 'anomaly needs' : 'anomalies need'} review
                 </span>
+                {openAnomalies.some((a) => a.severity === 'high') && (
+                  <span className="text-[10px] bg-rose-500/30 text-rose-300 font-mono px-2 py-0.5 rounded">
+                    HIGH SEVERITY
+                  </span>
+                )}
               </div>
               <p className="text-xs text-rose-200/80 mt-0.5">
                 Latest: {openAnomalies[0].description} ({openAnomalies[0].agentName})

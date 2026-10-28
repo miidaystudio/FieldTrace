@@ -13,6 +13,7 @@ import type { VisitMethod, VisitReviewReason } from '../../shared/enums.js';
 import { idString, isoOrNull, toLatLng, toObjectId, type LatLng } from '../../shared/schemas.js';
 import type { Actor } from '../../shared/types.js';
 import { AgentProfile } from '../agents/agent.model.js';
+import { raiseVisitIssue, settleVisitIssue } from '../anomalies/anomaly.service.js';
 import { findOpenAssignmentFor, systemTransition } from '../assignments/assignment.service.js';
 import { Assignment, type AssignmentDoc } from '../assignments/assignment.model.js';
 import { recordAudit } from '../audit/audit.service.js';
@@ -305,6 +306,7 @@ export async function closeVisit(
     );
   }
   await publish(orgId, updated);
+  await raiseVisitIssue(orgId, updated);
   return updated;
 }
 
@@ -541,6 +543,7 @@ export async function reviewVisit(
     changes: { status: { from: visit.status, to: body.decision } },
     metadata: { note: body.note ?? null, reviewReasons: visit.reviewReasons },
   });
+  await settleVisitIssue(actor, visit._id, body.decision);
   if (body.decision === 'verified' && updated.assignmentId) {
     await systemTransition(
       actor.orgId,
@@ -573,5 +576,6 @@ export async function recordMissedVisit(
     signals: { sampleCount: 0, avgAccuracyM: null, maxAccuracyM: null, mockLocation: false },
   });
   await publish(orgId, visit.toObject());
+  await raiseVisitIssue(orgId, visit.toObject());
   return true;
 }

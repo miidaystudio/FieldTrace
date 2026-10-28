@@ -1,0 +1,43 @@
+# Production-style stack: 2 API instances behind the web container, sharing one Redis.
+# MongoDB is external (e.g. Atlas) — set MONGODB_URI in deploy/.env.production.
+#
+#   cp deploy/.env.production.example deploy/.env.production   # fill in secrets
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#
+# Put a TLS-terminating proxy / load balancer in front of `web` (COOKIE_SECURE=true needs HTTPS).
+
+name: fieldtrace
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  api:
+    build: ../backend
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      TRUST_PROXY: '1'
+    depends_on:
+      - redis
+    deploy:
+      replicas: 2 # Socket.IO events are relayed between replicas through the Redis adapter
+    restart: unless-stopped
+
+  web:
+    build: ../frontend
+    environment:
+      API_UPSTREAM: http://api:4000
+    ports:
+      - '8080:80'
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  redis-data:

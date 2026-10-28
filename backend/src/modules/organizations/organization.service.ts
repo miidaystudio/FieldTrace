@@ -2,7 +2,7 @@ import { badRequest, notFound } from '../../lib/errors.js';
 import { idString } from '../../shared/schemas.js';
 import type { Actor } from '../../shared/types.js';
 import { diffFields, recordAudit } from '../audit/audit.service.js';
-import { Organization, type OrganizationDoc } from './organization.model.js';
+import { Organization, anomalyRulesOf, type OrganizationDoc } from './organization.model.js';
 import { invalidateOrgSettings } from './settings-cache.js';
 import type { OrganizationDto, UpdateOrganizationBody } from './organization.schemas.js';
 
@@ -26,6 +26,7 @@ export function toOrganizationDto(doc: OrganizationDoc): OrganizationDto {
         radiusM: settings.geofenceDefaults.radiusM,
         minDwellSec: settings.geofenceDefaults.minDwellSec,
       },
+      anomalyRules: anomalyRulesOf(settings),
     },
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
@@ -49,7 +50,13 @@ export async function updateOrganization(
   if (body.name !== undefined) org.name = body.name;
   if (body.timezone !== undefined) org.timezone = body.timezone;
   if (body.settings) {
-    const next = { ...before.settings, ...body.settings };
+    const { anomalyRules: rulesPatch, ...rest } = body.settings;
+    const rules = { ...before.settings.anomalyRules };
+    for (const [key, patch] of Object.entries(rulesPatch ?? {})) {
+      const name = key as keyof typeof rules;
+      (rules as Record<string, object>)[name] = { ...rules[name], ...patch };
+    }
+    const next = { ...before.settings, ...rest, anomalyRules: rules };
     if (next.offlineAfterSec <= next.staleAfterSec) {
       throw badRequest('settings.offlineAfterSec must be greater than settings.staleAfterSec');
     }

@@ -11,13 +11,19 @@ export const PASSWORD = 'test-password-123';
 
 export const uniqueEmail = (prefix: string) => `${prefix}-${randomUUID().slice(0, 8)}@example.test`;
 
-type Method = 'get' | 'post' | 'patch' | 'delete';
+type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 /** Authenticated request helper: `as(token).get('/api/v1/agents')`. */
 export function as(token: string) {
   const call = (method: Method) => (path: string) =>
     api[method](path).set('Authorization', `Bearer ${token}`);
-  return { get: call('get'), post: call('post'), patch: call('patch'), delete: call('delete') };
+  return {
+    get: call('get'),
+    post: call('post'),
+    put: call('put'),
+    patch: call('patch'),
+    delete: call('delete'),
+  };
 }
 
 export function refreshCookieFrom(res: supertest.Response): string {
