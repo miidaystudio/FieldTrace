@@ -1,4 +1,11 @@
-import type { Connectivity, Motion, ShiftStatus, TelemetryFlag, VehicleType } from './backend';
+import type {
+  AnomalyDto,
+  Connectivity,
+  Motion,
+  ShiftStatus,
+  TelemetryFlag,
+  VehicleType,
+} from './backend';
 
 /**
  * Display status of an agent, derived from backend `connectivity` + `motion` + flags
@@ -147,40 +154,32 @@ export interface RouteHistory {
   }[];
 }
 
-export type AnomalyType = 
-  | 'gps_spoof' 
-  | 'speed_violation' 
-  | 'route_deviation' 
-  | 'stale_signal' 
-  | 'idle_drain' 
-  | 'geofence_bypass' 
-  | 'mock_location';
+export type AnomalyType = AnomalyDto['type'];
+export type AnomalySeverity = AnomalyDto['severity'];
 
-export type AnomalySeverity = 'critical' | 'warning' | 'info';
-
+/** UI shape of a backend anomaly (see adapters.toAnomalyEvent). */
 export interface AnomalyEvent {
   id: string;
   agentId: string;
   agentName: string;
-  agentAvatar: string;
   type: AnomalyType;
   severity: AnomalySeverity;
+  /** Last time the signal was seen. */
   timestamp: string;
-  lat: number;
-  lng: number;
+  firstSeenAt: string;
+  occurrences: number;
+  lat: number | null;
+  lng: number | null;
   description: string;
-  explanation: string; // Explainable AI rationale
-  metricDetails: {
-    recordedSpeed?: string;
-    speedLimit?: string;
-    jumpDistance?: string;
-    deltaTime?: string;
-    dwellDuration?: string;
-    batteryDrainRate?: string;
-    deviatedMeters?: number;
-  };
-  status: 'open' | 'investigating' | 'resolved' | 'dismissed';
+  /** Plain-language reason built from the triggering numbers. */
+  explanation: string;
+  metricDetails: Record<string, string | number | boolean | null>;
+  status: AnomalyDto['status'];
+  acknowledgedBy?: string;
+  /** Resolution / dismissal note and who made it. */
   actionTaken?: string;
+  resolvedBy?: string;
+  visitId: string | null;
 }
 
 /** Dashboard KPIs computed from live data. `null` = not available until a later backend phase. */

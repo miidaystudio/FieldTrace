@@ -203,6 +203,23 @@ describe('Socket.IO realtime', () => {
     });
   });
 
+  it('pushes anomalies to staff only, never to the agent', async () => {
+    const admin = await ready(org.adminToken);
+    const agent = await ready(south.token);
+    const adminEvents = collect(admin.socket, 'anomaly:created');
+    const agentEvents = collect(agent.socket, 'anomaly:created');
+    const sessionId = await startShift(south.token);
+    await sendTelemetry(south.token, sessionId, [sample({ seq: 7001, isMock: true })]).expect(200);
+    const deadline = Date.now() + 3000;
+    while (!adminEvents.some((e) => e.data.type === 'mock_location') && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    const event = adminEvents.find((e) => e.data.type === 'mock_location');
+    expect(event?.data).toMatchObject({ agentId: south.id, severity: 'high', status: 'open' });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(agentEvents).toEqual([]);
+  });
+
   it('disconnects sockets of deactivated users at the next handshake', async () => {
     const extra = await createAgent(org.adminToken, null);
     const token = await activate(extra.email);

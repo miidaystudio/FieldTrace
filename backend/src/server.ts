@@ -4,18 +4,23 @@ import { env } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './lib/db.js';
 import { logger } from './lib/logger.js';
 import { connectRedis, disconnectRedis } from './lib/redis.js';
+import { startAnalyticsRollup } from './modules/analytics/rollup.js';
 import { startStatusSweeper } from './modules/tracking/status-sweeper.js';
 import { startAssignmentSweeper } from './modules/visits/sweepers.js';
 import { closeRealtime, initRealtime } from './realtime/io.js';
 
 async function main(): Promise<void> {
   await connectDatabase(env.MONGODB_URI);
-  await connectRedis(env.REDIS_URL, env.REDIS_KEY_PREFIX);
+  // In-memory Redis is a development convenience only; production must reach a real Redis.
+  await connectRedis(env.REDIS_URL, env.REDIS_KEY_PREFIX, {
+    allowMemoryFallback: env.NODE_ENV === 'development',
+  });
 
   const server = createServer(createApp());
   const io = initRealtime(server);
   const stopSweeper = startStatusSweeper(env.STATUS_SWEEP_INTERVAL_SEC);
   const stopAssignmentSweeper = startAssignmentSweeper(60);
+  const stopRollup = startAnalyticsRollup(600);
 
   server.listen(env.PORT, () => {
     logger.info(
@@ -32,6 +37,7 @@ async function main(): Promise<void> {
     const forceExit = setTimeout(() => process.exit(1), 10_000).unref();
     stopSweeper();
     stopAssignmentSweeper();
+    stopRollup();
     // io.close() also closes the underlying HTTP server.
     closeRealtime(io)
       .then(() => Promise.all([disconnectRedis(), disconnectDatabase()]))

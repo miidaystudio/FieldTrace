@@ -206,8 +206,9 @@ Use `id` to drop duplicates after a reconnect. `v` versions the payload shape.
 
 Clients send no events in Phase 2. Telemetry always goes over HTTP.
 
-Reserved for later phases: `geofence:entered`, `geofence:exited`, `visit:updated`,
-`alert:created`, `assignment:updated`.
+Added later: `geofence:entered`, `geofence:exited`, `visit:updated`, `assignment:updated`
+(Phase 3 — see `docs/visits-and-geofencing.md`) and `anomaly:created`, `anomaly:updated`
+(Phase 4, staff only — see `docs/anomalies-and-analytics.md`).
 
 ---
 

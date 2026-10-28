@@ -1,19 +1,20 @@
 import { EventEmitter } from 'node:events';
 
 /**
- * In-memory fallback for Redis.
+ * In-memory stand-in for Redis, for local development without Docker (`REDIS_URL=memory`).
  *
- * Implements the Redis commands used by FieldTrace (hashes, sorted sets, geo metadata,
- * TTL keys with NX, and Lua evaluation for atomic fix ingestion) without needing
- * an external Redis server or Docker.
+ * Implements only the commands FieldTrace uses (strings with NX/EX/PX, hashes, sorted-set
+ * scores, GEOADD, the live-position Lua script, a SET pipeline and SCAN). State lives in this
+ * process: it is lost on restart and NOT shared between instances, so it is refused in
+ * production (see lib/redis.ts).
  */
 export class InMemoryRedis extends EventEmitter {
-  public status: string = 'ready';
-  private keyPrefix: string;
-  private strings = new Map<string, { value: string; expiresAt?: number }>();
-  private hashes = new Map<string, Map<string, string>>();
-  private zsets = new Map<string, Map<string, number>>();
-  private geos = new Map<string, Map<string, { lng: number; lat: number }>>();
+  public status = 'ready';
+  private readonly keyPrefix: string;
+  private readonly strings = new Map<string, { value: string; expiresAt?: number }>();
+  private readonly hashes = new Map<string, Map<string, string>>();
+  private readonly zsets = new Map<string, Map<string, number>>();
+  private readonly geos = new Map<string, Map<string, { lng: number; lat: number }>>();
 
   constructor(keyPrefix = '') {
     super();
@@ -25,92 +26,75 @@ export class InMemoryRedis extends EventEmitter {
     return key.startsWith(this.keyPrefix) ? key : `${this.keyPrefix}${key}`;
   }
 
-  private cleanExpired(k: string) {
+  private liveString(k: string) {
     const item = this.strings.get(k);
-    if (item && item.expiresAt && item.expiresAt <= Date.now()) {
+    if (item?.expiresAt !== undefined && item.expiresAt <= Date.now()) {
       this.strings.delete(k);
-      return null;
+      return undefined;
     }
     return item;
   }
 
-  async hget(key: string, field: string): Promise<string | null> {
-    const k = this.fullKey(key);
-    const hash = this.hashes.get(k);
-    return hash?.get(String(field)) ?? null;
-  }
-
-  async hset(key: string, ...args: (string | number)[]): Promise<number> {
-    const k = this.fullKey(key);
+  private hashFor(k: string): Map<string, string> {
     let hash = this.hashes.get(k);
     if (!hash) {
       hash = new Map();
       this.hashes.set(k, hash);
     }
-    let count = 0;
-    if (args.length === 2) {
-      const field = String(args[0]);
-      const value = String(args[1]);
-      if (!hash.has(field)) count++;
-      hash.set(field, value);
-    } else {
-      for (let i = 0; i < args.length; i += 2) {
-        if (i + 1 < args.length) {
-          const field = String(args[i]);
-          const value = String(args[i + 1]);
-          if (!hash.has(field)) count++;
-          hash.set(field, value);
-        }
-      }
+    return hash;
+  }
+
+  // ------------------------------------------------------------ hashes
+
+  hget(key: string, field: string): Promise<string | null> {
+    return Promise.resolve(this.hashes.get(this.fullKey(key))?.get(String(field)) ?? null);
+  }
+
+  hset(key: string, ...args: (string | number)[]): Promise<number> {
+    const hash = this.hashFor(this.fullKey(key));
+    let added = 0;
+    for (let i = 0; i + 1 < args.length; i += 2) {
+      const field = String(args[i]);
+      if (!hash.has(field)) added++;
+      hash.set(field, String(args[i + 1]));
     }
-    return count;
+    return Promise.resolve(added);
   }
 
-  async hdel(key: string, ...fields: string[]): Promise<number> {
-    const k = this.fullKey(key);
-    const hash = this.hashes.get(k);
-    if (!hash) return 0;
-    let deleted = 0;
-    for (const f of fields) {
-      if (hash.delete(String(f))) deleted++;
-    }
-    return deleted;
+  hdel(key: string, ...fields: string[]): Promise<number> {
+    const hash = this.hashes.get(this.fullKey(key));
+    if (!hash) return Promise.resolve(0);
+    return Promise.resolve(fields.filter((field) => hash.delete(String(field))).length);
   }
 
-  async hgetall(key: string): Promise<Record<string, string>> {
-    const k = this.fullKey(key);
-    const hash = this.hashes.get(k);
-    if (!hash) return {};
-    const result: Record<string, string> = {};
-    for (const [field, val] of hash.entries()) {
-      result[field] = val;
-    }
-    return result;
+  hgetall(key: string): Promise<Record<string, string>> {
+    const hash = this.hashes.get(this.fullKey(key));
+    return Promise.resolve(hash ? Object.fromEntries(hash) : {});
   }
 
-  async hmget(key: string, ...fields: string[]): Promise<(string | null)[]> {
-    const k = this.fullKey(key);
-    const hash = this.hashes.get(k);
-    return fields.map((f) => hash?.get(String(f)) ?? null);
+  hmget(key: string, ...fields: string[]): Promise<(string | null)[]> {
+    const hash = this.hashes.get(this.fullKey(key));
+    return Promise.resolve(fields.map((field) => hash?.get(String(field)) ?? null));
   }
 
-  async zscore(key: string, member: string): Promise<string | null> {
-    const k = this.fullKey(key);
-    const zset = this.zsets.get(k);
-    const score = zset?.get(String(member));
-    return score !== undefined ? String(score) : null;
+  // ------------------------------------------------------------ sorted sets / geo
+
+  zscore(key: string, member: string): Promise<string | null> {
+    const score = this.zsets.get(this.fullKey(key))?.get(String(member));
+    return Promise.resolve(score === undefined ? null : String(score));
   }
 
-  async zmscore(key: string, ...members: string[]): Promise<(string | null)[]> {
-    const k = this.fullKey(key);
-    const zset = this.zsets.get(k);
-    return members.map((m) => {
-      const score = zset?.get(String(m));
-      return score !== undefined ? String(score) : null;
-    });
+  zmscore(key: string, ...members: string[]): Promise<(string | null)[]> {
+    const zset = this.zsets.get(this.fullKey(key));
+    return Promise.resolve(
+      members.map((member) => {
+        const score = zset?.get(String(member));
+        return score === undefined ? null : String(score);
+      }),
+    );
   }
 
-  async zadd(key: string, score: string | number, member: string): Promise<number> {
+  zadd(key: string, score: string | number, member: string): Promise<number> {
     const k = this.fullKey(key);
     let zset = this.zsets.get(k);
     if (!zset) {
@@ -119,10 +103,10 @@ export class InMemoryRedis extends EventEmitter {
     }
     const isNew = !zset.has(String(member));
     zset.set(String(member), Number(score));
-    return isNew ? 1 : 0;
+    return Promise.resolve(isNew ? 1 : 0);
   }
 
-  async geoadd(key: string, lng: string | number, lat: string | number, member: string): Promise<number> {
+  geoadd(key: string, lng: string | number, lat: string | number, member: string): Promise<number> {
     const k = this.fullKey(key);
     let geo = this.geos.get(k);
     if (!geo) {
@@ -131,135 +115,119 @@ export class InMemoryRedis extends EventEmitter {
     }
     const isNew = !geo.has(String(member));
     geo.set(String(member), { lng: Number(lng), lat: Number(lat) });
-    return isNew ? 1 : 0;
+    return Promise.resolve(isNew ? 1 : 0);
   }
 
-  async set(key: string, value: string, ...args: any[]): Promise<'OK' | null> {
+  // ------------------------------------------------------------ strings
+
+  /** Supports `NX`, `EX seconds` and `PX milliseconds`. */
+  set(key: string, value: string, ...args: (string | number)[]): Promise<'OK' | null> {
     const k = this.fullKey(key);
     let ttlMs: number | undefined;
-    let isNx = false;
-
+    let onlyIfAbsent = false;
     for (let i = 0; i < args.length; i++) {
       const arg = String(args[i]).toUpperCase();
-      if (arg === 'NX') {
-        isNx = true;
-      } else if (arg === 'EX' && i + 1 < args.length) {
-        ttlMs = Number(args[i + 1]) * 1000;
-        i++;
-      } else if (arg === 'PX' && i + 1 < args.length) {
-        ttlMs = Number(args[i + 1]);
-        i++;
-      }
+      if (arg === 'NX') onlyIfAbsent = true;
+      else if (arg === 'EX' && i + 1 < args.length) ttlMs = Number(args[++i]) * 1000;
+      else if (arg === 'PX' && i + 1 < args.length) ttlMs = Number(args[++i]);
     }
-
-    if (isNx) {
-      const existing = this.cleanExpired(k);
-      if (existing !== null && existing !== undefined) {
-        return null;
-      }
-    }
-
-    const expiresAt = ttlMs !== undefined ? Date.now() + ttlMs : undefined;
-    this.strings.set(k, { value: String(value), expiresAt });
-    return 'OK';
+    if (onlyIfAbsent && this.liveString(k)) return Promise.resolve(null);
+    this.strings.set(k, {
+      value: String(value),
+      ...(ttlMs !== undefined ? { expiresAt: Date.now() + ttlMs } : {}),
+    });
+    return Promise.resolve('OK');
   }
 
-  async get(key: string): Promise<string | null> {
-    const k = this.fullKey(key);
-    const item = this.cleanExpired(k);
-    return item ? item.value : null;
+  get(key: string): Promise<string | null> {
+    return Promise.resolve(this.liveString(this.fullKey(key))?.value ?? null);
   }
 
-  async del(...keys: string[]): Promise<number> {
+  del(...keys: string[]): Promise<number> {
     let count = 0;
     for (const key of keys) {
       const k = this.fullKey(key);
-      if (this.strings.delete(k)) count++;
-      if (this.hashes.delete(k)) count++;
-      if (this.zsets.delete(k)) count++;
-      if (this.geos.delete(k)) count++;
+      for (const store of [this.strings, this.hashes, this.zsets, this.geos]) {
+        if (store.delete(k)) count++;
+      }
     }
-    return count;
+    return Promise.resolve(count);
   }
 
+  /** Only `set` is pipelined by FieldTrace (sample de-duplication). */
   pipeline() {
-    const commands: Array<() => Promise<any>> = [];
-    const self = this;
-    return {
-      set(key: string, value: string, ...args: any[]) {
-        commands.push(() => self.set(key, value, ...args));
-        return this;
+    const commands: (() => Promise<unknown>)[] = [];
+    const pipe = {
+      set: (key: string, value: string, ...args: (string | number)[]) => {
+        commands.push(() => this.set(key, value, ...args));
+        return pipe;
       },
-      async exec(): Promise<[Error | null, any][]> {
-        const results: [Error | null, any][] = [];
-        for (const cmd of commands) {
+      exec: async (): Promise<[Error | null, unknown][]> => {
+        const results: [Error | null, unknown][] = [];
+        for (const command of commands) {
           try {
-            const res = await cmd();
-            results.push([null, res]);
-          } catch (err: any) {
-            results.push([err, null]);
+            results.push([null, await command()]);
+          } catch (error) {
+            results.push([error as Error, null]);
           }
         }
         return results;
       },
     };
+    return pipe;
   }
 
-  async eval(script: string, numKeys: number, ...args: (string | number)[]): Promise<any> {
-    if (script.includes('ZSCORE') || script.includes('SAVE_IF_NEWER')) {
-      const keys = args.slice(0, numKeys).map(String);
-      const argVals = args.slice(numKeys).map(String);
-      const lastSeenKey = keys[0]!;
-      const latestKey = keys[1]!;
-      const geoKey = keys[2]!;
-      const agentId = argVals[0]!;
-      const recordedAt = Number(argVals[1]!);
-      const fixJson = argVals[2]!;
-      const lng = Number(argVals[3]!);
-      const lat = Number(argVals[4]!);
-
-      const prevScore = await this.zscore(lastSeenKey, agentId);
-      if (prevScore !== null && Number(prevScore) >= recordedAt) {
-        return 0;
-      }
-      await this.zadd(lastSeenKey, recordedAt, agentId);
-      await this.hset(latestKey, agentId, fixJson);
-      await this.geoadd(geoKey, lng, lat, agentId);
-      return 1;
+  /**
+   * Only the live-position "save if newer" script is supported (keys: lastSeen zset, latest
+   * hash, geo; args: agentId, recordedAt, fix JSON, lng, lat). Anything else is a programming
+   * error and throws instead of silently pretending to succeed.
+   */
+  async eval(script: string, numKeys: number, ...args: (string | number)[]): Promise<number> {
+    if (!script.includes("redis.call('ZSCORE'")) {
+      throw new Error('InMemoryRedis.eval: unsupported Lua script');
     }
+    const [lastSeenKey, latestKey, geoKey] = args.slice(0, numKeys).map(String) as [
+      string,
+      string,
+      string,
+    ];
+    const [agentId, recordedAt, fixJson, lng, lat] = args.slice(numKeys).map(String) as [
+      string,
+      string,
+      string,
+      string,
+      string,
+    ];
+    const previous = await this.zscore(lastSeenKey, agentId);
+    if (previous !== null && Number(previous) >= Number(recordedAt)) return 0;
+    await this.zadd(lastSeenKey, recordedAt, agentId);
+    await this.hset(latestKey, agentId, fixJson);
+    await this.geoadd(geoKey, lng, lat, agentId);
     return 1;
   }
 
-  async *scanStream(opts?: { match?: string; count?: number }) {
-    const match = opts?.match;
-    const regex = match
-      ? new RegExp('^' + match.replace(/[-[\]{}()+?.,\\^$|#\s]/g, '\\$&').replace(/\*/g, '.*') + '$')
+  /** Single batch of matching keys (`*` wildcard only). */
+  *scanStream(options?: { match?: string; count?: number }): Generator<string[]> {
+    const pattern = options?.match;
+    const regex = pattern
+      ? new RegExp(`^${pattern.replace(/[-[\]{}()+?.,\\^$|#\s]/g, '\\$&').replace(/\*/g, '.*')}$`)
       : null;
-
-    const allKeys = new Set<string>([
+    const keys = new Set<string>([
       ...this.strings.keys(),
       ...this.hashes.keys(),
       ...this.zsets.keys(),
       ...this.geos.keys(),
     ]);
-
-    const matched: string[] = [];
-    for (const key of allKeys) {
-      if (!regex || regex.test(key)) {
-        matched.push(key);
-      }
-    }
-    if (matched.length > 0) {
-      yield matched;
-    }
+    const matched = [...keys].filter((key) => !regex || regex.test(key));
+    if (matched.length > 0) yield matched;
   }
 
-  async quit(): Promise<'OK'> {
+  quit(): Promise<'OK'> {
     this.status = 'end';
-    return 'OK';
+    return Promise.resolve('OK');
   }
 
-  async disconnect(): Promise<void> {
+  disconnect(): void {
     this.status = 'end';
   }
 }

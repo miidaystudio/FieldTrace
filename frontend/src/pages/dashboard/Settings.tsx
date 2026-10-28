@@ -1,15 +1,56 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
-import { PhaseNotice } from '../../components/common/PhaseNotice';
-import { Settings as SettingsIcon, Shield, Radio, Save, Clock } from 'lucide-react';
-import { organizationApi, type OrganizationSettings } from '../../api/backend';
+import { Settings as SettingsIcon, Shield, Radio, Save, Clock, Zap } from 'lucide-react';
+import { organizationApi, type AnomalyRules, type OrganizationSettings } from '../../api/backend';
 import { errorMessage } from '../../api/client';
 import { useAuthStore } from '../../store/useAuthStore';
 import { FormError } from '../auth/LoginPage';
 
 const input = 'w-full bg-ops-base border border-ops-border rounded-lg px-3 py-2 text-white font-mono disabled:opacity-60';
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+type RuleKey = keyof AnomalyRules;
+interface RuleField {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+}
+
+/** UI description of each anomaly rule; limits mirror the backend validation. */
+const RULES: { key: RuleKey; title: string; help: string; fields: RuleField[] }[] = [
+  {
+    key: 'impossibleSpeed',
+    title: 'Impossible speed',
+    help: 'Travel between two fixes faster than this (after allowing for GPS accuracy).',
+    fields: [{ key: 'maxSpeedKmh', label: 'Max speed (km/h)', min: 60, max: 1000 }],
+  },
+  {
+    key: 'gpsJump',
+    title: 'GPS jump',
+    help: 'A sudden displacement — typical of spoofing apps or bad fixes.',
+    fields: [
+      { key: 'minDistanceM', label: 'Min distance (m)', min: 200, max: 50000 },
+      { key: 'maxIntervalSec', label: 'Within (seconds)', min: 5, max: 600 },
+    ],
+  },
+  { key: 'mockLocation', title: 'Mock location', help: 'The phone reports a simulated location.', fields: [] },
+  {
+    key: 'signalGap',
+    title: 'Signal gap',
+    help: 'No GPS while on shift (breaks are ignored).',
+    fields: [{ key: 'minGapMin', label: 'After (minutes)', min: 2, max: 240 }],
+  },
+  {
+    key: 'longUnplannedStop',
+    title: 'Long unplanned stop',
+    help: 'Stationary away from every client geofence.',
+    fields: [{ key: 'minStopMin', label: 'After (minutes)', min: 5, max: 480 }],
+  },
+  { key: 'visitIssues', title: 'Visit issues', help: 'Visits sent to review or missed become anomalies.', fields: [] },
+  { key: 'offHours', title: 'Off-hours activity', help: 'Tracking outside the working hours above.', fields: [] },
+];
 
 export const Settings: React.FC = () => {
   const organization = useAuthStore((state) => state.organization);
@@ -40,6 +81,12 @@ export const Settings: React.FC = () => {
 
   const update = <K extends keyof OrganizationSettings>(key: K, value: OrganizationSettings[K]) =>
     setSettings({ ...settings, [key]: value });
+
+  const updateRule = (key: RuleKey, patch: Record<string, number | boolean>) =>
+    update('anomalyRules', {
+      ...settings.anomalyRules,
+      [key]: { ...settings.anomalyRules[key], ...patch },
+    } as AnomalyRules);
 
   const handleSave = async () => {
     setSaving(true);
@@ -178,9 +225,51 @@ export const Settings: React.FC = () => {
         </Card>
       </div>
 
-      <PhaseNotice phase={4} feature="Anomaly scoring thresholds">
-        Speed and GPS-jump thresholds become configurable together with the explainable anomaly rules.
-      </PhaseNotice>
+      <Card header={<div className="flex items-center gap-2"><Zap className="w-4 h-4 text-brand-teal" /><span>Anomaly Rules</span></div>}>
+        <p className="text-[11px] text-gray-400 mb-4">
+          Explainable rules that raise items in the Anomaly Center. They flag signals for a person to review —
+          nothing is rejected automatically. Changes apply to new GPS data within ~30 seconds.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {RULES.map((rule) => {
+            const config = settings.anomalyRules[rule.key] as Record<string, number | boolean>;
+            const enabled = Boolean(config.enabled);
+            return (
+              <div key={rule.key} className={`p-3 rounded-xl border ${enabled ? 'border-ops-border bg-ops-card' : 'border-ops-border/50 opacity-70'}`}>
+                <label className="flex items-center justify-between gap-2 cursor-pointer">
+                  <span className="font-semibold text-gray-200">{rule.title}</span>
+                  <input
+                    type="checkbox"
+                    disabled={!isAdmin}
+                    checked={enabled}
+                    onChange={(e) => updateRule(rule.key, { enabled: e.target.checked })}
+                    className="accent-teal-400 w-4 h-4"
+                  />
+                </label>
+                <p className="text-[11px] text-gray-400 mt-1">{rule.help}</p>
+                {rule.fields.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {rule.fields.map((field) => (
+                      <div key={field.key}>
+                        <label className="block text-[11px] text-gray-400 mb-1">{field.label}</label>
+                        <input
+                          type="number"
+                          min={field.min}
+                          max={field.max}
+                          className={input}
+                          disabled={!isAdmin || !enabled}
+                          value={Number(config[field.key])}
+                          onChange={(e) => updateRule(rule.key, { [field.key]: Number(e.target.value) })}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
     </div>
   );
 };

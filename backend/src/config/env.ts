@@ -72,6 +72,11 @@ function loadEnv(): Env {
       'Invalid environment configuration: COOKIE_SAMESITE=none requires COOKIE_SECURE=true',
     );
   }
+  if (result.NODE_ENV === 'production' && result.REDIS_URL === 'memory') {
+    throw new Error(
+      'Invalid environment configuration: REDIS_URL=memory is not allowed in production',
+    );
+  }
   return result;
 }
 

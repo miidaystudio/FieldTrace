@@ -2,7 +2,7 @@
  * Typed FieldTrace backend contract (subset used by the UI) + endpoint functions.
  * Source of truth: backend/docs/openapi.json and backend/docs/realtime-and-tracking.md.
  */
-import { api, apiAll, apiPage, setSession, type SessionPayload } from './client';
+import { api, apiAll, apiDownload, apiPage, setSession, type SessionPayload } from './client';
 
 // ------------------------------------------------------------------ enums
 
@@ -51,6 +51,18 @@ export interface OrganizationSettings {
   telemetryRetentionDays: number;
   workingHours: { start: string; end: string; days: number[] };
   geofenceDefaults: { radiusM: number; minDwellSec: number };
+  anomalyRules: AnomalyRules;
+}
+
+/** Thresholds of the explainable anomaly rules (Phase 4). */
+export interface AnomalyRules {
+  impossibleSpeed: { enabled: boolean; maxSpeedKmh: number };
+  gpsJump: { enabled: boolean; minDistanceM: number; maxIntervalSec: number };
+  mockLocation: { enabled: boolean };
+  signalGap: { enabled: boolean; minGapMin: number };
+  longUnplannedStop: { enabled: boolean; minStopMin: number };
+  visitIssues: { enabled: boolean };
+  offHours: { enabled: boolean };
 }
 
 export interface OrganizationDto {
@@ -348,7 +360,9 @@ export const authApi = {
 export const organizationApi = {
   get: () => api<OrganizationDto>('/organization'),
   update: (body: Partial<Pick<OrganizationDto, 'name' | 'timezone'>> & {
-    settings?: Partial<OrganizationSettings>;
+    settings?: Partial<Omit<OrganizationSettings, 'anomalyRules'>> & {
+      anomalyRules?: { [K in keyof AnomalyRules]?: Partial<AnomalyRules[K]> };
+    };
   }) => api<OrganizationDto>('/organization', { method: 'PATCH', body }),
 };
 
@@ -455,4 +469,156 @@ export const visitsApi = {
 export const routeAnalysisApi = {
   get: (agentId: string, from: string, to: string) =>
     api<RouteAnalysisDto>(`/agents/${agentId}/route-analysis`, { query: { from, to } }),
+};
+
+// ------------------------------------------------------------------ anomalies (Phase 4)
+
+export type AnomalyType =
+  | 'impossible_speed'
+  | 'gps_jump'
+  | 'mock_location'
+  | 'signal_gap'
+  | 'long_unplanned_stop'
+  | 'visit_issue'
+  | 'off_hours_activity';
+export type AnomalyStatus = 'open' | 'acknowledged' | 'resolved' | 'dismissed';
+export type Severity = 'low' | 'medium' | 'high';
+
+export interface AnomalyDto {
+  id: string;
+  agentId: string;
+  agent: { id: string; name: string } | null;
+  teamId: string | null;
+  sessionId: string | null;
+  type: AnomalyType;
+  severity: Severity;
+  status: AnomalyStatus;
+  title: string;
+  explanation: string;
+  metrics: Record<string, string | number | boolean | null>;
+  position: LatLng | null;
+  locationId: string | null;
+  visitId: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  occurrences: number;
+  acknowledged: { by: { id: string; name: string }; at: string } | null;
+  resolution: {
+    by: { id: string; name: string };
+    at: string;
+    status: 'resolved' | 'dismissed';
+    note: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnomalyStatsDto {
+  active: number;
+  byStatus: Record<AnomalyStatus, number>;
+  activeByType: Record<AnomalyType, number>;
+  activeBySeverity: Record<Severity, number>;
+}
+
+export const anomaliesApi = {
+  /** Most recent anomalies (all statuses), newest activity first. */
+  recent: (limit = 100) =>
+    apiPage<AnomalyDto>('/anomalies', { query: { limit, sort: '-lastSeenAt' } }).then((r) => r.data),
+  stats: () => api<AnomalyStatsDto>('/anomalies/stats'),
+  setStatus: (id: string, status: 'acknowledged' | 'resolved' | 'dismissed', note?: string) =>
+    api<AnomalyDto>(`/anomalies/${id}/status`, {
+      method: 'POST',
+      body: { status, note: note?.trim() || undefined },
+    }),
+};
+
+// ------------------------------------------------------------------ analytics & reports (Phase 4)
+
+export interface AnalyticsRange {
+  from?: string;
+  to?: string;
+  teamId?: string;
+}
+
+export interface VisitCounts {
+  total: number;
+  verified: number;
+  needsReview: number;
+  rejected: number;
+  missed: number;
+  inProgress: number;
+}
+
+export interface AnalyticsSummaryDto {
+  from: string;
+  to: string;
+  teamId: string | null;
+  agentsActive: number;
+  distanceKm: number;
+  shiftHours: number;
+  visits: VisitCounts;
+  verificationRate: number | null;
+  onTimeRate: number | null;
+  avgDwellMin: number | null;
+  assignments: { total: number; completed: number; completionRate: number | null };
+  anomalies: { total: number; high: number; byType: Record<AnomalyType, number> };
+  generatedAt: string;
+}
+
+export interface AnalyticsDayDto {
+  day: string;
+  agentsActive: number;
+  distanceKm: number;
+  shiftHours: number;
+  visits: VisitCounts;
+  verificationRate: number | null;
+  onTimeRate: number | null;
+  assignmentsTotal: number;
+  assignmentsCompleted: number;
+  anomalies: number;
+}
+
+export interface AnalyticsAgentDto {
+  agentId: string;
+  name: string;
+  teamId: string | null;
+  daysActive: number;
+  distanceKm: number;
+  shiftHours: number;
+  visits: VisitCounts;
+  verificationRate: number | null;
+  onTimeRate: number | null;
+  assignmentsTotal: number;
+  assignmentsCompleted: number;
+  anomalies: number;
+  highAnomalies: number;
+}
+
+export type ReportType = 'visits' | 'anomalies' | 'agent-daily';
+
+const rangeQuery = (range: AnalyticsRange) => ({
+  from: range.from,
+  to: range.to,
+  teamId: range.teamId,
+});
+
+export const analyticsApi = {
+  summary: (range: AnalyticsRange) =>
+    api<AnalyticsSummaryDto>('/analytics/summary', { query: rangeQuery(range) }),
+  daily: (range: AnalyticsRange) =>
+    api<AnalyticsDayDto[]>('/analytics/daily', { query: rangeQuery(range) }),
+  agents: (range: AnalyticsRange) =>
+    api<AnalyticsAgentDto[]>('/analytics/agents', { query: rangeQuery(range) }),
+  /** Downloads a CSV report through the authenticated client and saves it. */
+  downloadReport: async (type: ReportType, range: AnalyticsRange) => {
+    const { blob, filename } = await apiDownload(`/reports/${type}`, rangeQuery(range));
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename ?? `fieldtrace-${type}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
 };

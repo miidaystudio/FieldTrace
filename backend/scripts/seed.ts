@@ -11,6 +11,8 @@ import { env, isProduction } from '../src/config/env.js';
 import { Redis } from 'ioredis';
 import { connectDatabase, disconnectDatabase } from '../src/lib/db.js';
 import { AgentProfile } from '../src/modules/agents/agent.model.js';
+import { DailyAgentStats, RollupRun } from '../src/modules/analytics/daily-stats.model.js';
+import { Anomaly } from '../src/modules/anomalies/anomaly.model.js';
 import { Assignment } from '../src/modules/assignments/assignment.model.js';
 import { AuditLog } from '../src/modules/audit/audit.model.js';
 import { hashPassword } from '../src/modules/auth/password.js';
@@ -21,6 +23,8 @@ import { Team } from '../src/modules/teams/team.model.js';
 import { LocationTelemetry } from '../src/modules/tracking/telemetry.model.js';
 import { TrackingSession } from '../src/modules/tracking/tracking-session.model.js';
 import { User } from '../src/modules/users/user.model.js';
+import { GeofenceEvent } from '../src/modules/visits/geofence-event.model.js';
+import { Visit } from '../src/modules/visits/visit.model.js';
 import type { VehicleType } from '../src/shared/enums.js';
 
 const DEMO_SLUGS = ['acme-logistics', 'swift-couriers'];
@@ -81,6 +85,11 @@ async function removeDemoOrgs(): Promise<void> {
         AuditLog,
         TrackingSession,
         User,
+        Visit,
+        GeofenceEvent,
+        Anomaly,
+        DailyAgentStats,
+        RollupRun,
       ].map((model) => (model as typeof User).deleteMany({ orgId })),
     );
     await LocationTelemetry.deleteMany({ 'meta.orgId': orgId });

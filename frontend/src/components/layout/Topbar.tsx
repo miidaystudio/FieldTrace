@@ -3,6 +3,7 @@ import { Search, Bell, Clock, AlertOctagon, Radio } from 'lucide-react';
 import { useFleetStore } from '../../store/useFleetStore';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
+import { ANOMALY_LABELS } from '../../api/adapters';
 
 export const Topbar: React.FC = () => {
   const navigate = useNavigate();
@@ -130,7 +131,7 @@ export const Topbar: React.FC = () => {
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-white text-xs">{a.agentName}</span>
-                        <span className="text-[10px] text-rose-400 font-mono uppercase">{a.type.replace('_', ' ')}</span>
+                        <span className="text-[10px] text-rose-400 font-mono uppercase">{ANOMALY_LABELS[a.type]}</span>
                       </div>
                       <p className="text-[11px] text-gray-400 truncate mt-0.5">{a.description}</p>
                     </div>

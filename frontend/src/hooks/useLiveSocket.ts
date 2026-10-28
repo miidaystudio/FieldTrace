@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import type {
   AgentStatusPayload,
+  AnomalyDto,
   AssignmentDto,
   EventEnvelope,
   GeofenceTransitionPayload,
@@ -55,6 +56,7 @@ export function useLiveSocket(enabled: boolean): void {
       void store().refreshLive();
       void store().reloadAssignments();
       void store().reloadVisits();
+      void store().reloadAnomalies();
     });
     socket.on('disconnect', (reason) => {
       // `io server disconnect` = server closed it (token expiry); handled via auth:expired.
@@ -92,6 +94,13 @@ export function useLiveSocket(enabled: boolean): void {
       if (!isNew(event.id)) return;
       store().handleAssignmentUpdated(event.data);
     });
+
+    const onAnomaly = (event: EventEnvelope<AnomalyDto>) => {
+      if (!isNew(event.id)) return;
+      store().handleAnomaly(event.data);
+    };
+    socket.on('anomaly:created', onAnomaly);
+    socket.on('anomaly:updated', onAnomaly);
 
     return () => {
       socket.removeAllListeners();

@@ -100,17 +100,27 @@ export type VisitEvidenceType = (typeof VISIT_EVIDENCE_TYPES)[number];
 export const GEOFENCE_EVENT_TYPES = ['entered', 'exited'] as const;
 export type GeofenceEventType = (typeof GEOFENCE_EVENT_TYPES)[number];
 
-export const ANOMALY_STATUSES = ['open', 'investigating', 'resolved', 'dismissed'] as const;
+/**
+ * Anomaly lifecycle. `open` and `acknowledged` are "active" (a repeat of the same signal is merged
+ * into them); `resolved` (handled, with a note) and `dismissed` (false positive) are final.
+ */
+export const ANOMALY_STATUSES = ['open', 'acknowledged', 'resolved', 'dismissed'] as const;
 export type AnomalyStatus = (typeof ANOMALY_STATUSES)[number];
 
-export const ALERT_STATUSES = [
-  'open',
-  'acknowledged',
-  'investigating',
-  'resolved',
-  'dismissed',
+/**
+ * Explainable rule that raised an anomaly. Every anomaly carries the numbers that triggered it;
+ * none of them is proof of misconduct on its own — a person reviews it.
+ */
+export const ANOMALY_TYPES = [
+  'impossible_speed',
+  'gps_jump',
+  'mock_location',
+  'signal_gap',
+  'long_unplanned_stop',
+  'visit_issue',
+  'off_hours_activity',
 ] as const;
-export type AlertStatus = (typeof ALERT_STATUSES)[number];
+export type AnomalyType = (typeof ANOMALY_TYPES)[number];
 
-export const SEVERITIES = ['low', 'medium', 'high', 'critical'] as const;
+export const SEVERITIES = ['low', 'medium', 'high'] as const;
 export type Severity = (typeof SEVERITIES)[number];

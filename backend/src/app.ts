@@ -11,6 +11,8 @@ import { generateOpenApiDocument } from './lib/openapi.js';
 import type { ModuleRouter } from './lib/route.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { agentRoutes } from './modules/agents/agent.routes.js';
+import { analyticsRoutes, reportRoutes } from './modules/analytics/analytics.routes.js';
+import { anomalyRoutes } from './modules/anomalies/anomaly.routes.js';
 import { assignmentRoutes } from './modules/assignments/assignment.routes.js';
 import { auditRoutes } from './modules/audit/audit.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
@@ -48,6 +50,9 @@ const modules: ModuleRouter[] = [
   visitRoutes,
   geofenceEventRoutes,
   routeAnalysisRoutes,
+  anomalyRoutes,
+  analyticsRoutes,
+  reportRoutes,
 ];
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{8,64}$/;
@@ -92,7 +97,13 @@ export function createApp(): express.Express {
     cors({
       origin: env.CORS_ORIGINS,
       credentials: true,
-      exposedHeaders: ['X-Request-Id', 'RateLimit', 'RateLimit-Policy', 'Retry-After'],
+      exposedHeaders: [
+        'X-Request-Id',
+        'RateLimit',
+        'RateLimit-Policy',
+        'Retry-After',
+        'Content-Disposition',
+      ],
     }),
   );
   app.use(express.json({ limit: '100kb' }));

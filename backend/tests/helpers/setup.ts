@@ -8,8 +8,9 @@ import { initModels } from '../../src/lib/db.js';
 import { connectRedis, disconnectRedis } from '../../src/lib/redis.js';
 
 /**
- * Tests use the real Docker Redis (GEO + Lua are needed), isolated by database index 15 and a
- * unique key prefix per test file. Override with TEST_REDIS_URL.
+ * Tests use the real Docker Redis, isolated by database index 15 and a unique key prefix per
+ * test file. Override with TEST_REDIS_URL; `TEST_REDIS_URL=memory` runs against the in-process
+ * stand-in (no Docker needed, but the real Lua/GEO behaviour is not exercised).
  */
 const TEST_REDIS_URL = process.env.TEST_REDIS_URL ?? 'redis://127.0.0.1:6380/15';
 const redisPrefix = `ft-test-${randomUUID().slice(0, 8)}:`;
@@ -18,7 +19,9 @@ beforeAll(async () => {
   await mongoose.connect(inject('mongoUri'), { dbName: `ft_test_${randomUUID().slice(0, 8)}` });
   await initModels();
   try {
-    await connectRedis(TEST_REDIS_URL, redisPrefix);
+    await connectRedis(TEST_REDIS_URL, redisPrefix, {
+      allowMemoryFallback: TEST_REDIS_URL === 'memory',
+    });
   } catch (error) {
     throw new Error(
       `Tests need Redis at ${TEST_REDIS_URL}. Start it with: docker start fieldtrace-redis ` +
@@ -32,6 +35,7 @@ afterAll(async () => {
   await mongoose.connection.dropDatabase();
   await mongoose.disconnect();
   await disconnectRedis();
+  if (TEST_REDIS_URL === 'memory') return;
   // Remove this file's keys (raw client: SCAN/DEL must not be re-prefixed).
   const raw = new Redis(TEST_REDIS_URL);
   const keys: string[] = [];

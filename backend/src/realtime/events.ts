@@ -5,6 +5,7 @@ import type {
   ShiftStatus,
   TelemetryFlag,
 } from '../shared/enums.js';
+import type { AnomalyDto } from '../modules/anomalies/anomaly.schemas.js';
 import type { AssignmentDto } from '../modules/assignments/assignment.schemas.js';
 import type { VisitDto } from '../modules/visits/visit.schemas.js';
 import type { LatLng } from '../shared/schemas.js';
@@ -63,6 +64,8 @@ export interface GeofenceTransitionPayload {
 
 export type VisitUpdatedPayload = VisitDto;
 export type AssignmentUpdatedPayload = AssignmentDto;
+/** Anomalies go to admins and the agent's team managers only — never to the agent. */
+export type AnomalyPayload = AnomalyDto;
 
 export interface SessionReadyPayload {
   userId: string;
@@ -81,6 +84,8 @@ export interface ServerToClientEvents {
   'geofence:exited': (event: EventEnvelope<GeofenceTransitionPayload>) => void;
   'visit:updated': (event: EventEnvelope<VisitUpdatedPayload>) => void;
   'assignment:updated': (event: EventEnvelope<AssignmentUpdatedPayload>) => void;
+  'anomaly:created': (event: EventEnvelope<AnomalyPayload>) => void;
+  'anomaly:updated': (event: EventEnvelope<AnomalyPayload>) => void;
   /** Sent just before the server disconnects a socket whose access token expired. */
   'auth:expired': (event: EventEnvelope<{ reason: 'token_expired' }>) => void;
 }
@@ -97,6 +102,8 @@ export const SOCKET_EVENTS = {
   GEOFENCE_EXITED: 'geofence:exited',
   VISIT_UPDATED: 'visit:updated',
   ASSIGNMENT_UPDATED: 'assignment:updated',
+  ANOMALY_CREATED: 'anomaly:created',
+  ANOMALY_UPDATED: 'anomaly:updated',
 } as const;
 
 export const rooms = {
