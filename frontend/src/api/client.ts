@@ -56,7 +56,7 @@ export function onSessionChange(listener: (session: SessionPayload | null) => vo
 type Query = Record<string, string | number | boolean | undefined | null>;
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   query?: Query;
   /** Attach the access token (default true). */

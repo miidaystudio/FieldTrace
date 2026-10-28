@@ -67,6 +67,14 @@ export function getRedis(): Redis {
   return client as unknown as Redis;
 }
 
+/**
+ * The real ioredis client, or null when running on the in-memory stand-in (or not connected).
+ * Used by features that need a genuine server: pub/sub (Socket.IO adapter), rate-limit store.
+ */
+export function getRealRedis(): Redis | null {
+  return client instanceof Redis ? client : null;
+}
+
 export function isRedisReady(): boolean {
   return client?.status === 'ready';
 }

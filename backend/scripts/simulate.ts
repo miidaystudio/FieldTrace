@@ -24,6 +24,7 @@ import { ClientLocation } from '../src/modules/locations/location.model.js';
 import { Organization } from '../src/modules/organizations/organization.model.js';
 import { User } from '../src/modules/users/user.model.js';
 import { Assignment } from '../src/modules/assignments/assignment.model.js';
+import { RoutePlan } from '../src/modules/routing/route-plan.model.js';
 import { haversineMeters } from '../src/shared/geo.js';
 import type { LatLng } from '../src/shared/schemas.js';
 
@@ -236,6 +237,18 @@ async function main(): Promise<void> {
     .select('agentId locationId')
     .lean();
   const stopById = new Map(locations.map((l, i) => [l._id.toString(), stops[i]!]));
+  // A saved route plan (Phase 5) decides the order in which an agent drives to its stops.
+  const plans = await RoutePlan.find({ orgId: org._id, date: today, status: 'active' })
+    .select('stops.assignmentId stops.sequence')
+    .lean();
+  const sequence = new Map(
+    plans.flatMap((plan) =>
+      plan.stops.map((s) => [s.assignmentId.toString(), s.sequence] as const),
+    ),
+  );
+  todays.sort(
+    (a, b) => (sequence.get(a._id.toString()) ?? 1000) - (sequence.get(b._id.toString()) ?? 1000),
+  );
 
   const agents: SimAgent[] = [];
   for (const profile of selected) {

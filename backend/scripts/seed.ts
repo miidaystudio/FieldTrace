@@ -13,6 +13,12 @@ import { connectDatabase, disconnectDatabase } from '../src/lib/db.js';
 import { AgentProfile } from '../src/modules/agents/agent.model.js';
 import { DailyAgentStats, RollupRun } from '../src/modules/analytics/daily-stats.model.js';
 import { Anomaly } from '../src/modules/anomalies/anomaly.model.js';
+import {
+  Notification,
+  WebhookConfig,
+  WebhookDelivery,
+} from '../src/modules/notifications/notification.model.js';
+import { RoutePlan } from '../src/modules/routing/route-plan.model.js';
 import { Assignment } from '../src/modules/assignments/assignment.model.js';
 import { AuditLog } from '../src/modules/audit/audit.model.js';
 import { hashPassword } from '../src/modules/auth/password.js';
@@ -90,6 +96,10 @@ async function removeDemoOrgs(): Promise<void> {
         Anomaly,
         DailyAgentStats,
         RollupRun,
+        Notification,
+        WebhookConfig,
+        WebhookDelivery,
+        RoutePlan,
       ].map((model) => (model as typeof User).deleteMany({ orgId })),
     );
     await LocationTelemetry.deleteMany({ 'meta.orgId': orgId });

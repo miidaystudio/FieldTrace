@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Server } from 'socket.io';
 import { logger } from '../lib/logger.js';
+import type { NotificationDto } from '../modules/notifications/notification.schemas.js';
+import type { RoutePlanDto } from '../modules/routing/route.schemas.js';
 import {
   rooms,
   type AgentStatusPayload,
@@ -106,5 +108,28 @@ export function publishAnomaly(
     target.emit(type, envelope(type, data));
   } catch (error) {
     logger.error({ err: error }, `Failed to publish ${type}`);
+  }
+}
+
+/** One user's personal room only. */
+export function publishNotification(orgId: string, userId: string, data: NotificationDto): void {
+  try {
+    io?.to(rooms.user(orgId, userId)).emit(
+      'notification:created',
+      envelope('notification:created', data),
+    );
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to publish notification:created');
+  }
+}
+
+export function publishRouteUpdated(orgId: string, data: RoutePlanDto): void {
+  try {
+    audience(orgId, data.agentId, data.teamId)?.emit(
+      'route:updated',
+      envelope('route:updated', data),
+    );
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to publish route:updated');
   }
 }

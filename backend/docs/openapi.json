@@ -2378,6 +2378,730 @@
         },
         "additionalProperties": false
       },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "anomaly",
+              "assignment_overdue",
+              "test"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "link": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Dashboard path to open."
+          },
+          "entityType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "entityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "readAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "emailStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "sent",
+              "logged",
+              "skipped",
+              "failed"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "severity",
+          "title",
+          "body",
+          "link",
+          "entityType",
+          "entityId",
+          "readAt",
+          "emailStatus",
+          "createdAt"
+        ]
+      },
+      "NotificationPreferences": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "object",
+            "properties": {
+              "anomaly": {
+                "type": "boolean"
+              },
+              "assignment_overdue": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "anomaly",
+              "assignment_overdue"
+            ]
+          },
+          "email": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "minSeverity": {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "description": "Only notifications at or above this severity are emailed."
+              }
+            },
+            "required": [
+              "enabled",
+              "minSeverity"
+            ]
+          }
+        },
+        "required": [
+          "events",
+          "email"
+        ]
+      },
+      "UpdateNotificationPreferencesRequest": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "object",
+            "properties": {
+              "anomaly": {
+                "type": "boolean"
+              },
+              "assignment_overdue": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "email": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "minSeverity": {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "description": "Only notifications at or above this severity are emailed."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "WebhookConfig": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "minSeverity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "secretHint": {
+            "type": "string",
+            "description": "Last 4 characters of the signing secret."
+          },
+          "secret": {
+            "type": "string",
+            "description": "Signing secret — returned only once, when created or rotated. Store it now."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          }
+        },
+        "required": [
+          "url",
+          "enabled",
+          "minSeverity",
+          "secretHint",
+          "updatedAt"
+        ]
+      },
+      "PutWebhookRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "minSeverity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false
+      },
+      "WebhookTestResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "ok",
+          "status",
+          "error"
+        ]
+      },
+      "WebhookDelivery": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "event": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "sent",
+              "logged",
+              "skipped",
+              "failed"
+            ]
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "responseStatus": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lastError": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "sentAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "event",
+          "status",
+          "attempts",
+          "responseStatus",
+          "lastError",
+          "createdAt",
+          "sentAt"
+        ]
+      },
+      "RoutePlan": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718",
+            "description": "null for an unsaved preview."
+          },
+          "agentId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "teamId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-09"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "active",
+              "superseded",
+              null
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "openrouteservice",
+              "builtin"
+            ]
+          },
+          "fallbackReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "start": {
+            "type": "object",
+            "properties": {
+              "position": {
+                "$ref": "#/components/schemas/LatLng"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "current",
+                  "last_known",
+                  "custom",
+                  "first_stop"
+                ]
+              }
+            },
+            "required": [
+              "position",
+              "source"
+            ]
+          },
+          "departAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          },
+          "returnToStart": {
+            "type": "boolean"
+          },
+          "stops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sequence": {
+                  "type": "integer"
+                },
+                "assignmentId": {
+                  "type": "string",
+                  "pattern": "^[a-f\\d]{24}$/i",
+                  "example": "6704f1c2a1b2c3d4e5f60718"
+                },
+                "locationId": {
+                  "type": "string",
+                  "pattern": "^[a-f\\d]{24}$/i",
+                  "example": "6704f1c2a1b2c3d4e5f60718"
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "position": {
+                  "$ref": "#/components/schemas/LatLng"
+                },
+                "priority": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "normal",
+                    "high",
+                    "urgent"
+                  ]
+                },
+                "window": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "start": {
+                      "type": "string",
+                      "format": "date-time",
+                      "example": "2026-10-09T10:15:00.000Z"
+                    },
+                    "end": {
+                      "type": "string",
+                      "format": "date-time",
+                      "example": "2026-10-09T10:15:00.000Z"
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "end"
+                  ]
+                },
+                "serviceSec": {
+                  "type": "integer"
+                },
+                "eta": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-10-09T10:15:00.000Z"
+                },
+                "departure": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-10-09T10:15:00.000Z"
+                },
+                "waitSec": {
+                  "type": "integer"
+                },
+                "lateSec": {
+                  "type": "integer"
+                },
+                "legDistanceM": {
+                  "type": "integer"
+                },
+                "legDurationSec": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sequence",
+                "assignmentId",
+                "locationId",
+                "locationName",
+                "title",
+                "position",
+                "priority",
+                "window",
+                "serviceSec",
+                "eta",
+                "departure",
+                "waitSec",
+                "lateSec",
+                "legDistanceM",
+                "legDurationSec"
+              ]
+            }
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "distanceM": {
+                "type": "integer"
+              },
+              "durationSec": {
+                "type": "integer",
+                "description": "Departure to finish (travel + service + waiting)."
+              },
+              "travelSec": {
+                "type": "integer"
+              },
+              "waitSec": {
+                "type": "integer"
+              },
+              "lateSec": {
+                "type": "integer"
+              },
+              "lateStops": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "distanceM",
+              "durationSec",
+              "travelSec",
+              "waitSec",
+              "lateSec",
+              "lateStops"
+            ]
+          },
+          "baseline": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "distanceM": {
+                "type": "integer"
+              },
+              "durationSec": {
+                "type": "integer",
+                "description": "Departure to finish (travel + service + waiting)."
+              },
+              "travelSec": {
+                "type": "integer"
+              },
+              "waitSec": {
+                "type": "integer"
+              },
+              "lateSec": {
+                "type": "integer"
+              },
+              "lateStops": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "distanceM",
+              "durationSec",
+              "travelSec",
+              "waitSec",
+              "lateSec",
+              "lateStops"
+            ],
+            "description": "Same stops in their current order (window start / creation) — for comparison."
+          },
+          "geometry": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LatLng"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "agentId",
+          "teamId",
+          "date",
+          "status",
+          "provider",
+          "fallbackReason",
+          "start",
+          "departAt",
+          "returnToStart",
+          "stops",
+          "totals",
+          "baseline",
+          "geometry",
+          "warnings",
+          "createdAt"
+        ]
+      },
+      "PlanRouteRequest": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$/i",
+            "example": "6704f1c2a1b2c3d4e5f60718"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-09",
+            "description": "Org-local day. Default: today."
+          },
+          "assignmentIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "minItems": 1,
+            "maxItems": 20,
+            "description": "Stops to sequence. Default: the agent's open (pending, overdue, in-progress) assignments of the day."
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "current"
+                    ]
+                  }
+                },
+                "required": [
+                  "type"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "first_stop"
+                    ]
+                  }
+                },
+                "required": [
+                  "type"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "position"
+                    ]
+                  },
+                  "position": {
+                    "$ref": "#/components/schemas/LatLng"
+                  }
+                },
+                "required": [
+                  "type",
+                  "position"
+                ]
+              }
+            ],
+            "default": {
+              "type": "current"
+            },
+            "description": "`current` = live GPS (else last known position, else first stop); `position` = custom start."
+          },
+          "departAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-09T10:15:00.000Z",
+            "description": "Default: now for today, the start of working hours otherwise."
+          },
+          "serviceMin": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 240,
+            "default": 10,
+            "description": "Time spent at each stop, in minutes."
+          },
+          "returnToStart": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "agentId"
+        ],
+        "additionalProperties": false
+      },
       "UpdateOrganizationRequest": {
         "type": "object",
         "properties": {
@@ -7874,6 +8598,1249 @@
           },
           "404": {
             "description": "Resource not found in your organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "My notifications (newest first)",
+        "description": "Admins get every alert of the organization, managers those of their teams. Pushed live as `notification:created`. `unread=true` filters to unread.\n\n**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1",
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "unread",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Notification"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/unread-count": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Number of unread notifications (badge)",
+        "description": "**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "unread": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "unread"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark all my notifications as read",
+        "description": "**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "updated": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "updated"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/preferences": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "My notification preferences",
+        "description": "**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NotificationPreferences"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Update my notification preferences",
+        "description": "Choose which events notify you and from which severity they are also emailed.\n\n**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNotificationPreferencesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NotificationPreferences"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/webhook": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Organization webhook (secret hidden)",
+        "description": "**Roles: admin**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookConfig"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Create or update the organization webhook (audited)",
+        "description": "Every notification at or above `minSeverity` is POSTed as JSON with headers `X-FieldTrace-Event`, `X-FieldTrace-Timestamp` and `X-FieldTrace-Signature: sha256=<hmac>` over `${timestamp}.${body}`. The secret is returned only when the webhook is created. In production the URL must be HTTPS and must not resolve to a private address.\n\n**Roles: admin**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutWebhookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookConfig"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Remove the organization webhook (audited)",
+        "description": "**Roles: admin**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/webhook/rotate-secret": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Generate a new signing secret (returned once, audited)",
+        "description": "**Roles: admin**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookConfig"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/webhook/test": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Send a signed test event now",
+        "description": "**Roles: admin**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookTestResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/webhook/deliveries": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Last 50 webhook deliveries (kept 30 days)",
+        "description": "**Roles: admin**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookDelivery"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark one notification as read",
+        "description": "**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Notification"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in your organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/routes/optimize": {
+      "post": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Preview an optimized stop order with ETAs (not saved)",
+        "description": "Sequences up to 20 open assignments of one agent for a day: time windows (late arrivals are heavily penalised, weighted by priority), service time per stop, optional return to start. Travel times come from OpenRouteService when `ORS_API_KEY` is set, otherwise from straight-line estimates (`provider: builtin`, see `warnings`). `baseline` is the current order for comparison.\n\n**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRouteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RoutePlan"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/routes": {
+      "post": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Optimize and save as the agent's route for the day (audited)",
+        "description": "Sequences up to 20 open assignments of one agent for a day: time windows (late arrivals are heavily penalised, weighted by priority), service time per stop, optional return to start. Travel times come from OpenRouteService when `ORS_API_KEY` is set, otherwise from straight-line estimates (`provider: builtin`, see `warnings`). `baseline` is the current order for comparison. Supersedes the previous plan of that agent and day, links the assignments (`routeId`) and pushes `route:updated`. Route analysis then uses this order as the plan.\n\n**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRouteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RoutePlan"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Active route plans of a day (default today)",
+        "description": "**Roles: admin, manager**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-10-09"
+            },
+            "required": false,
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$/i",
+              "example": "6704f1c2a1b2c3d4e5f60718"
+            },
+            "required": false,
+            "name": "agentId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RoutePlan"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/routes/mine": {
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "The calling agent's planned route (driver app)",
+        "description": "**Roles: agent**",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-10-09"
+            },
+            "required": false,
+            "name": "date",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RoutePlan"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted (role, scope or pending password change)",
             "content": {
               "application/json": {
                 "schema": {

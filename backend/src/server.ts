@@ -5,6 +5,8 @@ import { connectDatabase, disconnectDatabase } from './lib/db.js';
 import { logger } from './lib/logger.js';
 import { connectRedis, disconnectRedis } from './lib/redis.js';
 import { startAnalyticsRollup } from './modules/analytics/rollup.js';
+import { startRetention } from './modules/maintenance/retention.js';
+import { startNotificationDispatcher } from './modules/notifications/notification.service.js';
 import { startStatusSweeper } from './modules/tracking/status-sweeper.js';
 import { startAssignmentSweeper } from './modules/visits/sweepers.js';
 import { closeRealtime, initRealtime } from './realtime/io.js';
@@ -21,6 +23,8 @@ async function main(): Promise<void> {
   const stopSweeper = startStatusSweeper(env.STATUS_SWEEP_INTERVAL_SEC);
   const stopAssignmentSweeper = startAssignmentSweeper(60);
   const stopRollup = startAnalyticsRollup(600);
+  const stopDispatcher = startNotificationDispatcher(15);
+  const stopRetention = startRetention();
 
   server.listen(env.PORT, () => {
     logger.info(
@@ -38,6 +42,8 @@ async function main(): Promise<void> {
     stopSweeper();
     stopAssignmentSweeper();
     stopRollup();
+    stopDispatcher();
+    stopRetention();
     // io.close() also closes the underlying HTTP server.
     closeRealtime(io)
       .then(() => Promise.all([disconnectRedis(), disconnectDatabase()]))

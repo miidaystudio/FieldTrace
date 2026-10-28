@@ -9,6 +9,7 @@ import { AgentProfile } from '../agents/agent.model.js';
 import { findAgentInScope } from '../agents/agent.service.js';
 import { diffFields, recordAudit } from '../audit/audit.service.js';
 import { ClientLocation } from '../locations/location.model.js';
+import { notify } from '../notifications/notification.service.js';
 import { isTeamInScope, resolveTeamScope, teamScopeFilter } from '../teams/team.scope.js';
 import { User } from '../users/user.model.js';
 import { Assignment, type AssignmentDoc } from './assignment.model.js';
@@ -129,7 +130,24 @@ export async function systemTransition(
     },
     { returnDocument: 'after' },
   ).lean();
-  return updated ? toDtoAndPublish(orgId, updated) : null;
+  if (!updated) return null;
+  const dto = await toDtoAndPublish(orgId, updated);
+  if (to === 'overdue') {
+    const what = dto.title ?? dto.location?.name ?? 'Assignment';
+    await notify(orgId, {
+      kind: 'assignment_overdue',
+      severity: dto.priority === 'urgent' || dto.priority === 'high' ? 'high' : 'medium',
+      title: `Overdue: ${what}`,
+      body: `${dto.agent?.name ?? 'The agent'} has not completed "${what}" (${dto.scheduledDate}). ${reason}.`,
+      link: '/dashboard/tasks',
+      entityType: 'assignment',
+      entityId: updated._id,
+      teamId: updated.teamId,
+      event: 'assignment.overdue',
+      data: dto,
+    });
+  }
+  return dto;
 }
 
 /** The agent's open assignment at a location for a given day (used to link visits). */

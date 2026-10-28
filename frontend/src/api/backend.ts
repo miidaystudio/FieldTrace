@@ -622,3 +622,139 @@ export const analyticsApi = {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 };
+
+// ------------------------------------------------------------------ notifications (Phase 5)
+
+export type NotificationKind = 'anomaly' | 'assignment_overdue' | 'test';
+export type DeliveryStatus = 'pending' | 'sent' | 'logged' | 'skipped' | 'failed';
+
+export interface NotificationDto {
+  id: string;
+  kind: NotificationKind;
+  severity: Severity;
+  title: string;
+  body: string;
+  link: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  readAt: string | null;
+  emailStatus: DeliveryStatus;
+  createdAt: string;
+}
+
+export interface NotificationPrefs {
+  events: { anomaly: boolean; assignment_overdue: boolean };
+  email: { enabled: boolean; minSeverity: Severity };
+}
+
+export interface WebhookConfigDto {
+  url: string;
+  enabled: boolean;
+  minSeverity: Severity;
+  secretHint: string;
+  /** Only right after creation / rotation. */
+  secret?: string;
+  updatedAt: string;
+}
+
+export interface WebhookDeliveryDto {
+  id: string;
+  event: string;
+  status: DeliveryStatus;
+  attempts: number;
+  responseStatus: number | null;
+  lastError: string | null;
+  createdAt: string;
+  sentAt: string | null;
+}
+
+export const notificationsApi = {
+  recent: (limit = 30) =>
+    apiPage<NotificationDto>('/notifications', { query: { limit } }).then((r) => r.data),
+  unreadCount: () => api<{ unread: number }>('/notifications/unread-count').then((r) => r.unread),
+  markRead: (id: string) => api<NotificationDto>(`/notifications/${id}/read`, { method: 'POST' }),
+  markAllRead: () => api<{ updated: number }>('/notifications/read-all', { method: 'POST' }),
+  prefs: () => api<NotificationPrefs>('/notifications/preferences'),
+  updatePrefs: (body: { events?: Partial<NotificationPrefs['events']>; email?: Partial<NotificationPrefs['email']> }) =>
+    api<NotificationPrefs>('/notifications/preferences', { method: 'PATCH', body }),
+  webhook: () => api<WebhookConfigDto>('/notifications/webhook'),
+  putWebhook: (body: { url: string; enabled: boolean; minSeverity: Severity }) =>
+    api<WebhookConfigDto>('/notifications/webhook', { method: 'PUT', body }),
+  deleteWebhook: () => api<void>('/notifications/webhook', { method: 'DELETE' }),
+  rotateSecret: () => api<WebhookConfigDto>('/notifications/webhook/rotate-secret', { method: 'POST' }),
+  testWebhook: () =>
+    api<{ ok: boolean; status: number | null; error: string | null }>('/notifications/webhook/test', {
+      method: 'POST',
+    }),
+  deliveries: () => api<WebhookDeliveryDto[]>('/notifications/webhook/deliveries'),
+};
+
+// ------------------------------------------------------------------ route optimization (Phase 5)
+
+export interface PlannedStopDto {
+  sequence: number;
+  assignmentId: string;
+  locationId: string;
+  locationName: string | null;
+  title: string | null;
+  position: LatLng;
+  priority: AssignmentPriority;
+  window: { start: string; end: string } | null;
+  serviceSec: number;
+  eta: string;
+  departure: string;
+  waitSec: number;
+  lateSec: number;
+  legDistanceM: number;
+  legDurationSec: number;
+}
+
+export interface RouteTotals {
+  distanceM: number;
+  durationSec: number;
+  travelSec: number;
+  waitSec: number;
+  lateSec: number;
+  lateStops: number;
+}
+
+export interface RoutePlanDto {
+  id: string | null;
+  agentId: string;
+  teamId: string | null;
+  date: string;
+  status: 'active' | 'superseded' | null;
+  provider: 'openrouteservice' | 'builtin';
+  fallbackReason: string | null;
+  start: { position: LatLng; source: 'current' | 'last_known' | 'custom' | 'first_stop' };
+  departAt: string;
+  returnToStart: boolean;
+  stops: PlannedStopDto[];
+  totals: RouteTotals;
+  baseline: RouteTotals | null;
+  geometry: LatLng[];
+  warnings: string[];
+  createdAt: string | null;
+}
+
+export interface PlanRouteRequest {
+  agentId: string;
+  date?: string;
+  assignmentIds?: string[];
+  start?: { type: 'current' } | { type: 'first_stop' } | { type: 'position'; position: LatLng };
+  departAt?: string;
+  serviceMin?: number;
+  returnToStart?: boolean;
+}
+
+export const routesApi = {
+  optimize: (body: PlanRouteRequest) => api<RoutePlanDto>('/routes/optimize', { method: 'POST', body }),
+  save: (body: PlanRouteRequest) => api<RoutePlanDto>('/routes', { method: 'POST', body }),
+  list: (date?: string) => api<RoutePlanDto[]>('/routes', { query: { date } }),
+  /** The agent's plan for the day, or null if none was saved. */
+  mine: (date?: string) =>
+    api<RoutePlanDto>('/routes/mine', { query: { date } }).catch((error: unknown) => {
+      if ((error as { status?: number }).status === 404) return null;
+      throw error;
+    }),
+};

@@ -18,6 +18,8 @@ import { auditRoutes } from './modules/audit/audit.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import { locationRoutes } from './modules/locations/location.routes.js';
+import { notificationRoutes } from './modules/notifications/notification.routes.js';
+import { routeRoutes } from './modules/routing/route.routes.js';
 import { organizationRoutes } from './modules/organizations/organization.routes.js';
 import { teamRoutes } from './modules/teams/team.routes.js';
 import {
@@ -53,6 +55,8 @@ const modules: ModuleRouter[] = [
   anomalyRoutes,
   analyticsRoutes,
   reportRoutes,
+  notificationRoutes,
+  routeRoutes,
 ];
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{8,64}$/;

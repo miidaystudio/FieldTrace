@@ -13,6 +13,7 @@ import { idString, toObjectId } from '../../shared/schemas.js';
 import type { Actor } from '../../shared/types.js';
 import { AgentProfile } from '../agents/agent.model.js';
 import { recordAudit } from '../audit/audit.service.js';
+import { notify } from '../notifications/notification.service.js';
 import { anomalyRulesOf } from '../organizations/organization.model.js';
 import { getOrgSettings, getOrgTimezone } from '../organizations/settings-cache.js';
 import { isTeamInScope, resolveTeamScope, teamScopeFilter } from '../teams/team.scope.js';
@@ -172,7 +173,19 @@ export async function raiseAnomaly(
         occurrences: 1,
       })
     ).toObject();
-    await publish(orgId, created, 'created');
+    const dto = await publish(orgId, created, 'created');
+    await notify(orgId, {
+      kind: 'anomaly',
+      severity: created.severity,
+      title: `${dto.agent?.name ?? 'Agent'}: ${created.title}`,
+      body: created.explanation,
+      link: '/dashboard/anomalies',
+      entityType: 'anomaly',
+      entityId: created._id,
+      teamId: created.teamId,
+      event: 'anomaly.created',
+      data: dto,
+    });
     return created;
   } catch (error) {
     // Another request created it first (unique active key): merge into that one instead.

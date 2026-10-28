@@ -1,8 +1,11 @@
 import type { Server as HttpServer } from 'node:http';
+import { createAdapter } from '@socket.io/redis-adapter';
+import type { Redis } from 'ioredis';
 import { Server, type Socket } from 'socket.io';
 import { env } from '../config/env.js';
 import { AppError, ErrorCode } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
+import { getRealRedis } from '../lib/redis.js';
 import { authenticateToken } from '../middleware/authenticate.js';
 import { AgentProfile } from '../modules/agents/agent.model.js';
 import { resolveTeamScope } from '../modules/teams/team.scope.js';
@@ -33,6 +36,9 @@ type IoSocket = Socket<
   SocketData
 >;
 
+/** Pub/sub connections of the Redis adapter, closed with the server. */
+const adapterClients = new WeakMap<IoServer, Redis[]>();
+
 /** Error passed to the client's `connect_error` handler: `err.message` + `err.data.code`. */
 function connectError(code: string, message: string): Error & { data: { code: string } } {
   return Object.assign(new Error(message), { data: { code } });
@@ -41,6 +47,8 @@ function connectError(code: string, message: string): Error & { data: { code: st
 /** Joins the rooms this user may receive events from. Rooms are never chosen by the client. */
 async function joinScopedRooms(socket: IoSocket): Promise<SessionReadyPayload> {
   const { actor, tokenExpiresAt } = socket.data;
+  // Personal channel (notifications) for every role.
+  await socket.join(rooms.user(actor.orgId, actor.userId));
   const base = {
     userId: actor.userId,
     role: actor.role,
@@ -71,7 +79,8 @@ async function joinScopedRooms(socket: IoSocket): Promise<SessionReadyPayload> {
  * expiry, live user/session status). When the access token expires the server emits
  * `auth:expired` and disconnects; the client refreshes and reconnects with the new token.
  *
- * Single-instance for now; horizontal scaling needs the Redis adapter (Phase 5).
+ * Several API instances: with a real Redis the Socket.IO Redis adapter relays every emit to all
+ * instances (pub/sub). On the in-memory Redis (development) it stays single-instance.
  */
 export function initRealtime(httpServer: HttpServer): IoServer {
   const io: IoServer = new Server(httpServer, {
@@ -79,6 +88,15 @@ export function initRealtime(httpServer: HttpServer): IoServer {
     serveClient: false,
     cors: { origin: env.CORS_ORIGINS, credentials: true },
   });
+
+  const redis = getRealRedis();
+  if (redis) {
+    const pub = redis.duplicate();
+    const sub = redis.duplicate();
+    adapterClients.set(io, [pub, sub]);
+    io.adapter(createAdapter(pub, sub, { key: `${env.REDIS_KEY_PREFIX}socket.io` }));
+    logger.info('Socket.IO Redis adapter enabled (multi-instance)');
+  }
 
   io.use((socket, next) => {
     const auth = socket.handshake.auth as { token?: unknown } | undefined;
@@ -128,4 +146,7 @@ export function initRealtime(httpServer: HttpServer): IoServer {
 export async function closeRealtime(io: IoServer): Promise<void> {
   setPublisherServer(null);
   await io.close();
+  await Promise.all(
+    (adapterClients.get(io) ?? []).map((client) => client.quit().catch(() => 'OK')),
+  );
 }

@@ -14,6 +14,8 @@ monolith built with Node.js, Express 5, TypeScript, MongoDB (Mongoose) and Zod.
 - **Real-time contract (driver app + live map + Socket.IO):** [`docs/realtime-and-tracking.md`](docs/realtime-and-tracking.md)
 - **Visits & geofencing contract:** [`docs/visits-and-geofencing.md`](docs/visits-and-geofencing.md)
 - **Anomalies, analytics & reports:** [`docs/anomalies-and-analytics.md`](docs/anomalies-and-analytics.md)
+- **Route optimization & notifications:** [`docs/routing-and-notifications.md`](docs/routing-and-notifications.md)
+- **Deployment & operations:** [`docs/deployment.md`](docs/deployment.md)
 - **OpenAPI spec:** [`docs/openapi.json`](docs/openapi.json) · live Swagger UI at `/api/docs`
 
 ## Quick start
@@ -70,7 +72,7 @@ See [`.env.example`](.env.example) for descriptions. Required: `MONGODB_URI`,
 | `REFRESH_TOKEN_TTL_DAYS`                                  | 30                                            | absolute session lifetime                                |
 | `REDIS_URL` / `REDIS_KEY_PREFIX`                          | `memory` / `ft:`                              | `redis://127.0.0.1:6380` for Docker; `memory` = dev only |
 | `CORS_ORIGINS`                                            | `http://localhost:3000,http://localhost:5173` | comma-separated (HTTP + Socket.IO)                       |
-| `COOKIE_SECURE` / `COOKIE_SAMESITE`                       | `false` / `lax`                               | use `true` + HTTPS in production                         |
+| `COOKIE_SECURE` / `COOKIE_SAMESITE`                       | `false` / `lax`                               | `true` is **required** in production (HTTPS)             |
 | `TRUST_PROXY`                                             | 0                                             | proxy hops (for correct client IPs / rate limiting)      |
 | `AUTH_RATE_LIMIT_PER_MIN`                                 | 10                                            | per IP, on login/register/refresh                        |
 | `SEED_DEFAULT_PASSWORD`                                   | —                                             | dev seeding only                                         |
@@ -78,6 +80,10 @@ See [`.env.example`](.env.example) for descriptions. Required: `MONGODB_URI`,
 | `TELEMETRY_MAX_AGE_SEC` / `TELEMETRY_MAX_FUTURE_SKEW_SEC` | 86400 / 120                                   | timestamp acceptance window                              |
 | `TELEMETRY_RETENTION_DAYS`                                | 90                                            | history TTL (applied when the collection is created)     |
 | `STATUS_SWEEP_INTERVAL_SEC`                               | 15                                            | online → stale → offline re-evaluation                   |
+| `AUDIT_RETENTION_DAYS` / `NOTIFICATION_RETENTION_DAYS`    | 0 (keep) / 90                                 | retention job every 6 h                                  |
+| `ORS_API_KEY` / `ORS_BASE_URL`                            | — / openrouteservice.org                      | road routing; without key: built-in estimates            |
+| `ROUTING_AVG_SPEED_KMH` / `ROUTING_ROAD_FACTOR`           | 25 / 1.3                                      | built-in optimizer                                       |
+| `RESEND_API_KEY` / `EMAIL_FROM` / `APP_URL`               | — / alerts@… / http://localhost:3000          | email alerts; without key emails are only logged         |
 
 ## Architecture
 
@@ -152,12 +158,12 @@ AuditLog. The API's `agentId` is always the **AgentProfile id**.
 
 - **No transactions:** multi-document creates (org + admin, user + agent profile) use compensating
   deletes so a standalone dev `mongod` works. Switch to transactions if a replica set is guaranteed.
-- **Single instance for realtime:** Socket.IO has no Redis adapter yet and the auth rate limiter is
-  in-memory; both are needed before running several API instances (Phase 5). The status sweeper
-  already uses a Redis lock.
-- **History retention** is one collection-wide TTL (`TELEMETRY_RETENTION_DAYS`); the per-org
-  `telemetryRetentionDays` setting is not enforced yet. Changing the env var later requires a
-  `collMod` on `location_telemetry`.
+- **Several instances:** with a real Redis, Socket.IO uses the Redis adapter and the auth rate
+  limiter a Redis store; background jobs take Redis locks. On the in-memory Redis (development) it
+  is single-instance.
+- **History retention:** per-org `telemetryRetentionDays` is enforced by the retention job; the
+  collection-wide TTL (`TELEMETRY_RETENTION_DAYS`) is the upper bound. Changing the env var later
+  requires a `collMod` on `location_telemetry`.
 - **Logout/deactivation vs. open sockets:** HTTP is cut off immediately; an already-connected
   socket keeps receiving until its access token expires (≤ 15 min) — then `auth:expired`.
 - **Manager rooms** are computed at connect; team membership changes apply on reconnect.
@@ -173,7 +179,7 @@ AuditLog. The API's `agentId` is always the **AgentProfile id**.
 npm test
 ```
 
-Runs 181 unit and integration tests against `mongodb-memory-server` (downloads a MongoDB binary on
+Runs 198 unit and integration tests against `mongodb-memory-server` (downloads a MongoDB binary on
 first run) and the Docker Redis (`npm run redis:start`; tests use database 15 with a unique key
 prefix per file and clean up after themselves; override with `TEST_REDIS_URL`). Coverage includes: register/login/refresh rotation/reuse detection/logout, forced
 password change, immediate deactivation and role changes, **cross-organization access on every

@@ -5,6 +5,7 @@ import type { Actor } from '../../shared/types.js';
 import { findAgentInScope } from '../agents/agent.service.js';
 import { Assignment } from '../assignments/assignment.model.js';
 import { orgDayOf } from '../organizations/settings-cache.js';
+import { RoutePlan } from '../routing/route-plan.model.js';
 import { LocationTelemetry } from '../tracking/telemetry.model.js';
 import { findContaining, getOrgGeofences } from './geofence-index.js';
 import { Visit } from './visit.model.js';
@@ -137,15 +138,37 @@ export async function getRouteAnalysis(
     orgDayOf(actor.orgId, from),
     orgDayOf(actor.orgId, to),
   ]);
-  const assignments = await Assignment.find({
+  const scheduled = await Assignment.find({
     orgId: actor.orgId,
     agentId: profile._id,
     scheduledDate: { $gte: dayFrom, $lte: dayTo },
     status: { $ne: 'cancelled' },
   })
     .sort({ scheduledDate: 1, 'window.start': 1, createdAt: 1 })
-    .select('locationId status')
+    .select('locationId status scheduledDate')
     .lean();
+  // A saved route plan defines the planned order; otherwise window start / creation order.
+  const plans = await RoutePlan.find({
+    orgId: actor.orgId,
+    agentId: profile._id,
+    date: { $gte: dayFrom, $lte: dayTo },
+    status: 'active',
+  })
+    .select('date stops.assignmentId stops.sequence')
+    .lean();
+  const plannedSeq = new Map<string, number>();
+  for (const plan of plans) {
+    for (const stop of plan.stops) plannedSeq.set(idString(stop.assignmentId), stop.sequence);
+  }
+  const assignments = scheduled
+    .map((a, index) => ({ a, index }))
+    .sort(
+      (x, y) =>
+        x.a.scheduledDate.localeCompare(y.a.scheduledDate) ||
+        (plannedSeq.get(idString(x.a._id)) ?? 1000 + x.index) -
+          (plannedSeq.get(idString(y.a._id)) ?? 1000 + y.index),
+    )
+    .map(({ a }) => a);
   const visits = await Visit.find({
     orgId: actor.orgId,
     assignmentId: { $in: assignments.map((a) => a._id) },

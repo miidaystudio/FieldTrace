@@ -13,6 +13,8 @@ GPS anomaly detection and route optimization.
 [`backend/docs/realtime-and-tracking.md`](backend/docs/realtime-and-tracking.md) ·
 [`backend/docs/visits-and-geofencing.md`](backend/docs/visits-and-geofencing.md) ·
 [`backend/docs/anomalies-and-analytics.md`](backend/docs/anomalies-and-analytics.md) ·
+[`backend/docs/routing-and-notifications.md`](backend/docs/routing-and-notifications.md) ·
+[`backend/docs/deployment.md`](backend/docs/deployment.md) ·
 OpenAPI: [`backend/docs/openapi.json`](backend/docs/openapi.json)
 
 ## Run the full stack locally
@@ -50,4 +52,6 @@ Socket.IO, including the Anomaly Center, historical analytics and CSV exports.
 | 2 — Real-time tracking | Shifts, telemetry ingestion, Redis live state, Socket.IO live map, time-series history, 50-agent simulator | ✅ Done |
 | 3 — Geofencing & history | Entry/exit detection, auto + manual visits with review, overdue/missed, route analysis | ✅ Done |
 | 4 — Anomalies & analytics | Explainable anomaly rules with review workflow and live alerts, daily KPI rollups, CSV reports | ✅ Done |
-| 5 — Optimization & hardening | Routing provider + stop sequencing, email/SMS alerts, load tests, retention, deployment | ⏳ Next |
+| 5 — Optimization & hardening | Route optimization (built-in + OpenRouteService), notifications (in-app, email, signed webhooks), multi-instance (Socket.IO Redis adapter, Redis rate limits), retention, Docker + CI | ✅ Done |
+
+Production: see [`backend/docs/deployment.md`](backend/docs/deployment.md) (`deploy/docker-compose.yml`, `.github/workflows/ci.yml`). Still open: a load test at hundreds of agents on real infrastructure, SMS, and a native driver app for reliable background GPS.

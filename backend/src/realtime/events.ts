@@ -6,6 +6,8 @@ import type {
   TelemetryFlag,
 } from '../shared/enums.js';
 import type { AnomalyDto } from '../modules/anomalies/anomaly.schemas.js';
+import type { NotificationDto } from '../modules/notifications/notification.schemas.js';
+import type { RoutePlanDto } from '../modules/routing/route.schemas.js';
 import type { AssignmentDto } from '../modules/assignments/assignment.schemas.js';
 import type { VisitDto } from '../modules/visits/visit.schemas.js';
 import type { LatLng } from '../shared/schemas.js';
@@ -86,6 +88,10 @@ export interface ServerToClientEvents {
   'assignment:updated': (event: EventEnvelope<AssignmentUpdatedPayload>) => void;
   'anomaly:created': (event: EventEnvelope<AnomalyPayload>) => void;
   'anomaly:updated': (event: EventEnvelope<AnomalyPayload>) => void;
+  /** A saved route plan (staff of the team + the agent). */
+  'route:updated': (event: EventEnvelope<RoutePlanDto>) => void;
+  /** Sent only to the recipient's personal room. */
+  'notification:created': (event: EventEnvelope<NotificationDto>) => void;
   /** Sent just before the server disconnects a socket whose access token expired. */
   'auth:expired': (event: EventEnvelope<{ reason: 'token_expired' }>) => void;
 }
@@ -104,6 +110,8 @@ export const SOCKET_EVENTS = {
   ASSIGNMENT_UPDATED: 'assignment:updated',
   ANOMALY_CREATED: 'anomaly:created',
   ANOMALY_UPDATED: 'anomaly:updated',
+  NOTIFICATION_CREATED: 'notification:created',
+  ROUTE_UPDATED: 'route:updated',
 } as const;
 
 export const rooms = {
@@ -113,4 +121,6 @@ export const rooms = {
   team: (orgId: string, teamId: string) => `org:${orgId}:team:${teamId}`,
   /** The agent's own channel (driver app). */
   agent: (orgId: string, agentId: string) => `org:${orgId}:agent:${agentId}`,
+  /** One user's personal channel (notifications), joined by every role. */
+  user: (orgId: string, userId: string) => `org:${orgId}:user:${userId}`,
 };

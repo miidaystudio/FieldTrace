@@ -208,7 +208,7 @@ Clients send no events in Phase 2. Telemetry always goes over HTTP.
 
 Added later: `geofence:entered`, `geofence:exited`, `visit:updated`, `assignment:updated`
 (Phase 3 — see `docs/visits-and-geofencing.md`) and `anomaly:created`, `anomaly:updated`
-(Phase 4, staff only — see `docs/anomalies-and-analytics.md`).
+(Phase 4, staff only — see `docs/anomalies-and-analytics.md`), `route:updated` (a saved route plan: staff of the team + the agent) and `notification:created` (only to the recipient's personal room `org:{orgId}:user:{userId}`, Phase 5 — see `docs/routing-and-notifications.md`).
 
 ---
 

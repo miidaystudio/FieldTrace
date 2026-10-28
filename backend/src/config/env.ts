@@ -54,6 +54,33 @@ const envSchema = z.object({
   TELEMETRY_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
   /** How often agent connectivity (online/stale/offline) is re-evaluated. */
   STATUS_SWEEP_INTERVAL_SEC: z.coerce.number().int().min(1).max(300).default(15),
+
+  // ---- Phase 5: retention
+  /** Delete audit logs older than this many days; 0 keeps them forever. */
+  AUDIT_RETENTION_DAYS: z.coerce.number().int().min(0).max(3650).default(0),
+  /** Delete in-app notifications older than this many days. */
+  NOTIFICATION_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
+
+  // ---- Phase 5: route optimization
+  /** OpenRouteService key. Without it the built-in optimizer (straight-line estimates) is used. */
+  ORS_API_KEY: z
+    .string()
+    .optional()
+    .transform((value) => value || undefined),
+  ORS_BASE_URL: z.url().default('https://api.openrouteservice.org'),
+  /** Built-in optimizer: average door-to-door speed and straight-line → road distance factor. */
+  ROUTING_AVG_SPEED_KMH: z.coerce.number().min(5).max(120).default(25),
+  ROUTING_ROAD_FACTOR: z.coerce.number().min(1).max(3).default(1.3),
+
+  // ---- Phase 5: notifications
+  /** Resend API key for email. Without it emails are only logged (development). */
+  RESEND_API_KEY: z
+    .string()
+    .optional()
+    .transform((value) => value || undefined),
+  EMAIL_FROM: z.string().min(3).default('FieldTrace <alerts@fieldtrace.local>'),
+  /** Public dashboard URL used in email links. */
+  APP_URL: z.url().default('http://localhost:3000'),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -67,6 +94,11 @@ function loadEnv(): Env {
     throw new Error(`Invalid environment configuration:\n${problems}`);
   }
   const result = parsed.data;
+  if (result.NODE_ENV === 'production' && !result.COOKIE_SECURE) {
+    throw new Error(
+      'Invalid environment configuration: COOKIE_SECURE=true is required in production (HTTPS)',
+    );
+  }
   if (result.COOKIE_SAMESITE === 'none' && !result.COOKIE_SECURE) {
     throw new Error(
       'Invalid environment configuration: COOKIE_SAMESITE=none requires COOKIE_SECURE=true',

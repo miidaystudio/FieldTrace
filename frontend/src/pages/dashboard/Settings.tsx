@@ -6,6 +6,7 @@ import { organizationApi, type AnomalyRules, type OrganizationSettings } from '.
 import { errorMessage } from '../../api/client';
 import { useAuthStore } from '../../store/useAuthStore';
 import { FormError } from '../auth/LoginPage';
+import { MyNotificationsCard, WebhookCard } from './NotificationSettings';
 
 const input = 'w-full bg-ops-base border border-ops-border rounded-lg px-3 py-2 text-white font-mono disabled:opacity-60';
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -270,6 +271,11 @@ export const Settings: React.FC = () => {
           })}
         </div>
       </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <MyNotificationsCard />
+        {isAdmin && <WebhookCard />}
+      </div>
     </div>
   );
 };

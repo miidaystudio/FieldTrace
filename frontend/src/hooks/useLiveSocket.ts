@@ -4,6 +4,7 @@ import type {
   AgentStatusPayload,
   AnomalyDto,
   AssignmentDto,
+  NotificationDto,
   EventEnvelope,
   GeofenceTransitionPayload,
   LocationUpdatePayload,
@@ -57,6 +58,7 @@ export function useLiveSocket(enabled: boolean): void {
       void store().reloadAssignments();
       void store().reloadVisits();
       void store().reloadAnomalies();
+      void store().reloadNotifications();
     });
     socket.on('disconnect', (reason) => {
       // `io server disconnect` = server closed it (token expiry); handled via auth:expired.
@@ -101,6 +103,10 @@ export function useLiveSocket(enabled: boolean): void {
     };
     socket.on('anomaly:created', onAnomaly);
     socket.on('anomaly:updated', onAnomaly);
+    socket.on('notification:created', (event: EventEnvelope<NotificationDto>) => {
+      if (!isNew(event.id)) return;
+      store().handleNotification(event.data);
+    });
 
     return () => {
       socket.removeAllListeners();

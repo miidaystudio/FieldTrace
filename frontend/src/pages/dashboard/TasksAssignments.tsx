@@ -5,7 +5,8 @@ import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { Tabs } from '../../components/common/Tabs';
 import { Modal } from '../../components/common/Modal';
-import { ClipboardList, Plus, MapPin, Calendar, Loader2 } from 'lucide-react';
+import { ClipboardList, Plus, MapPin, Calendar, Loader2, Route } from 'lucide-react';
+import { RoutePlannerModal } from './RoutePlannerModal';
 import {
   assignmentsApi,
   type AssignmentDto,
@@ -59,6 +60,9 @@ export const TasksAssignments: React.FC = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // ---- route planner
+  const [plannerOpen, setPlannerOpen] = useState(false);
 
   // ---- create
   const [createOpen, setCreateOpen] = useState(false);
@@ -229,6 +233,9 @@ export const TasksAssignments: React.FC = () => {
               className="bg-transparent text-white focus:outline-none font-mono"
             />
           </div>
+          <Button variant="secondary" size="sm" leftIcon={<Route className="w-4 h-4" />} onClick={() => setPlannerOpen(true)}>
+            Optimize Route
+          </Button>
           <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateOpen(true)}>
             Create Assignment
           </Button>
@@ -330,6 +337,14 @@ export const TasksAssignments: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      <RoutePlannerModal
+        isOpen={plannerOpen}
+        onClose={() => setPlannerOpen(false)}
+        date={date}
+        assignments={assignments}
+        onSaved={() => void load()}
+      />
     </div>
   );
 };

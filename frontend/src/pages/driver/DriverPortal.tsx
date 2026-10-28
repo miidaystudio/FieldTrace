@@ -19,7 +19,16 @@ import {
   LogOut as CheckOutIcon,
   ShieldAlert,
 } from 'lucide-react';
-import { agentsApi, assignmentsApi, visitsApi, type AgentDto, type AssignmentDto, type VisitDto } from '../../api/backend';
+import {
+  agentsApi,
+  assignmentsApi,
+  routesApi,
+  visitsApi,
+  type AgentDto,
+  type AssignmentDto,
+  type RoutePlanDto,
+  type VisitDto,
+} from '../../api/backend';
 import { errorMessage } from '../../api/client';
 import { REASON_LABELS, VEHICLE_LABELS, avatarFor, fmt, timeAgo, todayIn } from '../../api/adapters';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -43,15 +52,22 @@ export const DriverPortal: React.FC = () => {
   const [profile, setProfile] = useState<AgentDto | null>(null);
   const [assignments, setAssignments] = useState<AssignmentDto[]>([]);
   const [visits, setVisits] = useState<VisitDto[]>([]);
+  /** Today's route planned by the manager (stop order + ETAs), if any. */
+  const [routePlan, setRoutePlan] = useState<RoutePlanDto | null>(null);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const today = todayIn(organization?.timezone ?? 'UTC');
 
   const loadAssignments = useCallback(async () => {
     try {
-      const [mine, myVisits] = await Promise.all([assignmentsApi.mine(today), visitsApi.mine(today)]);
+      const [mine, myVisits, plan] = await Promise.all([
+        assignmentsApi.mine(today),
+        visitsApi.mine(today),
+        routesApi.mine(today),
+      ]);
       setAssignments(mine);
       setVisits(myVisits);
+      setRoutePlan(plan);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -65,8 +81,12 @@ export const DriverPortal: React.FC = () => {
     return () => clearInterval(timer);
   }, [loadAssignments]);
 
-  const ordered = [...assignments].sort((a, b) =>
-    (a.window?.start ?? a.createdAt).localeCompare(b.window?.start ?? b.createdAt),
+  // The planned route defines the order; otherwise time window / creation order.
+  const planned = new Map(routePlan?.stops.map((s) => [s.assignmentId, s]) ?? []);
+  const ordered = [...assignments].sort(
+    (a, b) =>
+      (planned.get(a.id)?.sequence ?? 1000) - (planned.get(b.id)?.sequence ?? 1000) ||
+      (a.window?.start ?? a.createdAt).localeCompare(b.window?.start ?? b.createdAt),
   );
   const open = ordered.filter((a) => a.status === 'in_progress' || a.status === 'pending' || a.status === 'overdue');
   const current = open.find((a) => a.status === 'in_progress') ?? open[0];
@@ -276,6 +296,13 @@ export const DriverPortal: React.FC = () => {
         {activeDriverTab === 'my_route' && (
           <div className="space-y-3 animate-in fade-in">
             <div className="text-xs font-bold text-gray-400 uppercase tracking-wider font-mono">Today's Itinerary ({today})</div>
+            {routePlan && (
+              <div className="p-2.5 rounded-xl border border-brand-teal/40 bg-ops-panel text-[11px] text-gray-300 font-mono">
+                Planned route: {(routePlan.totals.distanceM / 1000).toFixed(1)} km · about{' '}
+                {Math.round(routePlan.totals.durationSec / 60)} min
+                {routePlan.provider === 'builtin' && <span className="text-gray-500"> (estimated)</span>}
+              </div>
+            )}
             {ordered.length === 0 && <p className="text-xs text-gray-500">No assignments for today.</p>}
             <div className="space-y-2.5">
               {ordered.map((assignment, idx) => {
@@ -308,6 +335,15 @@ export const DriverPortal: React.FC = () => {
                         <div className="text-xs font-bold text-white leading-tight">{assignment.location?.name ?? 'Site'}</div>
                         <div className="text-[10px] text-gray-400 font-mono mt-0.5">
                           {windowLabel(assignment)} • {assignment.status.replace('_', ' ')}
+                          {planned.get(assignment.id) && !isCompleted && (
+                            <span className="text-brand-teal">
+                              {' '}• ETA{' '}
+                              {new Date(planned.get(assignment.id)!.eta).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

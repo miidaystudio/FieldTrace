@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import {
   agentsApi,
   anomaliesApi,
+  notificationsApi,
   type AnomalyDto,
+  type NotificationDto,
   assignmentsApi,
   fleetApi,
   locationsApi,
@@ -45,6 +47,9 @@ interface FleetState {
   /** Most recent anomalies (all statuses, newest activity first), kept live via the socket. */
   anomalies: AnomalyEvent[];
   anomaliesError: string | null;
+  /** My recent notifications (newest first) and the unread count, kept live via the socket. */
+  notifications: NotificationDto[];
+  unreadNotifications: number;
   kpis: KPIOverview;
 
   loadState: LoadState;
@@ -78,6 +83,10 @@ interface FleetState {
   reloadVisits: () => Promise<void>;
   reloadAnomalies: () => Promise<void>;
   handleAnomaly: (anomaly: AnomalyDto) => void;
+  reloadNotifications: () => Promise<void>;
+  handleNotification: (notification: NotificationDto) => void;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
   setSocketState: (state: SocketState) => void;
   reset: () => void;
 
@@ -146,6 +155,8 @@ const initialData = {
   geofenceFeed: [] as GeofenceTransitionPayload[],
   anomalies: [] as AnomalyEvent[],
   anomaliesError: null as string | null,
+  notifications: [] as NotificationDto[],
+  unreadNotifications: 0,
   kpis: EMPTY_KPIS,
   loadState: 'idle' as LoadState,
   loadError: null as string | null,
@@ -201,6 +212,7 @@ export const useFleetStore = create<FleetState>((set, get) => {
         const { agents, asOf } = await buildAgents(directory, assignmentsToday);
         set({ ...withDerived(agents), loadState: 'ready', lastSnapshotAt: asOf });
         void get().reloadAnomalies();
+        void get().reloadNotifications();
       } catch (error) {
         set({ loadState: 'error', loadError: errorMessage(error) });
       }
@@ -312,6 +324,45 @@ export const useFleetStore = create<FleetState>((set, get) => {
         .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
         .slice(0, 200);
       set(withDerived(get().agents, { anomalies, eventsReceived: get().eventsReceived + 1 }));
+    },
+
+    reloadNotifications: async () => {
+      try {
+        const [notifications, unreadNotifications] = await Promise.all([
+          notificationsApi.recent(30),
+          notificationsApi.unreadCount(),
+        ]);
+        set({ notifications, unreadNotifications });
+      } catch {
+        // The bell simply stays empty; nothing else depends on it.
+      }
+    },
+
+    handleNotification: (notification) => {
+      if (get().notifications.some((n) => n.id === notification.id)) return;
+      set({
+        notifications: [notification, ...get().notifications].slice(0, 50),
+        unreadNotifications: get().unreadNotifications + (notification.readAt ? 0 : 1),
+      });
+    },
+
+    markNotificationRead: async (id) => {
+      const target = get().notifications.find((n) => n.id === id);
+      if (!target || target.readAt) return;
+      const updated = await notificationsApi.markRead(id);
+      set({
+        notifications: get().notifications.map((n) => (n.id === id ? updated : n)),
+        unreadNotifications: Math.max(0, get().unreadNotifications - 1),
+      });
+    },
+
+    markAllNotificationsRead: async () => {
+      await notificationsApi.markAllRead();
+      const now = new Date().toISOString();
+      set({
+        notifications: get().notifications.map((n) => (n.readAt ? n : { ...n, readAt: now })),
+        unreadNotifications: 0,
+      });
     },
 
     setSocketState: (socketState) => set({ socketState }),
