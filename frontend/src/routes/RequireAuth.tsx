@@ -25,6 +25,6 @@ export const RequireAuth: React.FC<{ roles: Role[] }> = ({ roles }) => {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
   if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
-  if (!roles.includes(user.role)) return <Navigate to={homePathFor(user.role)} replace />;
+  if (!roles.includes(user.role)) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <Outlet />;
 };

@@ -9,7 +9,7 @@ import { assignmentsApi, fleetApi, routeAnalysisApi, type RouteAnalysisDto } fro
 import { errorMessage } from '../../api/client';
 import { toRouteStops, toWaypoints } from '../../api/adapters';
 import type { Agent, RouteStop, RouteWaypoint } from '../../api/types';
-import { FormError } from '../auth/LoginPage';
+import { DarkFormError } from '../../components/common/FormInputs';
 
 const timeLabel = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString() : '—');
 
@@ -125,8 +125,8 @@ export const RouteReplay: React.FC = () => {
 
         {/* Agent & Date Selectors */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-ops-panel border border-ops-border rounded-xl px-3 py-1.5 text-xs">
-            <Calendar className="w-4 h-4 text-brand-teal" />
+          <div className="flex items-center gap-2 bg-[#161920] border border-white/[0.08] rounded-full px-4 py-2 text-xs text-white">
+            <Calendar className="w-4 h-4 text-[#8E96A4]" />
             <input
               type="date"
               value={selectedDate}
@@ -138,10 +138,10 @@ export const RouteReplay: React.FC = () => {
           <select
             value={selectedAgentId}
             onChange={(e) => setParams({ agent: e.target.value })}
-            className="bg-ops-panel border border-ops-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-teal"
+            className="bg-[#161920] border border-white/[0.08] rounded-full px-4 py-2 text-xs text-white focus:outline-none focus:border-white/30"
           >
             {sortedAgents.map((a) => (
-              <option key={a.id} value={a.id}>
+              <option key={a.id} value={a.id} className="bg-[#161920] text-white">
                 {a.callsign} - {a.name}
               </option>
             ))}
@@ -149,7 +149,7 @@ export const RouteReplay: React.FC = () => {
         </div>
       </div>
 
-      <FormError message={error} />
+      <DarkFormError message={error} />
 
       {/* Main Map + Side Telemetry Deck */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

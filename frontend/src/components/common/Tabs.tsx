@@ -27,8 +27,8 @@ export const Tabs: React.FC<TabsProps> = ({
     <div
       className={twMerge(
         'flex items-center gap-1',
-        variant === 'pills' && 'bg-ops-base/60 p-1 rounded-xl border border-ops-border',
-        variant === 'underline' && 'border-b border-ops-border',
+        variant === 'pills' && 'bg-[#12151C] p-1.5 rounded-full inline-flex items-center gap-1 border border-white/[0.05]',
+        variant === 'underline' && 'border-b border-white/[0.05]',
         className
       )}
     >
@@ -43,8 +43,8 @@ export const Tabs: React.FC<TabsProps> = ({
               className={twMerge(
                 'flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all',
                 isActive
-                  ? 'border-brand-teal text-brand-teal'
-                  : 'border-transparent text-gray-400 hover:text-gray-200'
+                  ? 'border-white text-white'
+                  : 'border-transparent text-[#8E96A4] hover:text-white'
               )}
             >
               {tab.icon}
@@ -52,8 +52,8 @@ export const Tabs: React.FC<TabsProps> = ({
               {tab.count !== undefined && (
                 <span
                   className={twMerge(
-                    'px-1.5 py-0.5 rounded text-[10px] font-mono',
-                    isActive ? 'bg-brand-teal/20 text-brand-teal' : 'bg-ops-card text-gray-400'
+                    'px-2 py-0.5 rounded-full text-[10px] font-mono',
+                    isActive ? 'bg-white text-black font-semibold' : 'bg-white/[0.06] text-[#8E96A4]'
                   )}
                 >
                   {tab.count}
@@ -68,10 +68,10 @@ export const Tabs: React.FC<TabsProps> = ({
             key={tab.id}
             onClick={() => onChange(tab.id)}
             className={twMerge(
-              'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150',
+              'px-4 py-1.5 rounded-full text-xs flex items-center gap-2 transition-colors',
               isActive
-                ? 'bg-ops-card text-brand-teal font-semibold shadow-sm border border-slate-700/50'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-ops-card/40'
+                ? 'bg-white text-black font-semibold shadow-xs'
+                : 'text-[#8E96A4] hover:text-white hover:bg-white/[0.04]'
             )}
           >
             {tab.icon}
@@ -79,8 +79,8 @@ export const Tabs: React.FC<TabsProps> = ({
             {tab.count !== undefined && (
               <span
                 className={twMerge(
-                  'px-1.5 py-0.5 rounded text-[10px] font-mono',
-                  isActive ? 'bg-brand-teal/20 text-brand-teal font-bold' : 'bg-slate-800 text-gray-400'
+                  'px-1.5 py-0.5 rounded-full text-[10px] font-mono',
+                  isActive ? 'bg-black/10 text-black font-bold' : 'bg-white/[0.06] text-[#8E96A4]'
                 )}
               >
                 {tab.count}

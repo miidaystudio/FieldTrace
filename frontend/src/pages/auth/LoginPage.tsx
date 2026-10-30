@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Navigate, useLocation, useNavigate, Link } from 'react-router-dom';
-import { Radio, LogIn, AlertTriangle, Sparkles, ArrowLeft, Shield, UserCheck, Smartphone } from 'lucide-react';
+import { Radio, LogIn, AlertTriangle, Sparkles, ArrowLeft, Shield, UserCheck } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { errorMessage } from '../../api/client';
-import { homePathFor, useAuthStore } from '../../store/useAuthStore';
+import { homePathFor, isStaff, useAuthStore } from '../../store/useAuthStore';
 
 export const AuthLayout: React.FC<{ title: string; subtitle: string; children: React.ReactNode }> = ({
   title,
@@ -64,8 +64,9 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (status === 'authenticated' && user) {
-    return <Navigate to={user.mustChangePassword ? '/change-password' : homePathFor(user.role)} replace />;
+  if (status === 'authenticated' && user && isStaff(user.role)) {
+    const from = (location.state as { from?: string } | null)?.from;
+    return <Navigate to={user.mustChangePassword ? '/change-password' : from ?? '/dashboard'} replace />;
   }
 
   const doLogin = async (loginEmail: string, loginPass: string) => {
@@ -97,8 +98,17 @@ export const LoginPage: React.FC = () => {
   return (
     <AuthLayout
       title="Sign in"
-      subtitle="Managers and admins access the dispatch dashboard; field agents open the driver app."
+      subtitle="Managers and admins access the dispatch dashboard."
     >
+      {user && !isStaff(user.role) && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-start gap-2 shadow-xs">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+          <span className="leading-relaxed">
+            Signed in as <strong>{user.name}</strong> ({user.role}). Field agent accounts cannot access the management console. Please click <strong>Admin</strong> or <strong>Manager</strong> below to switch accounts.
+          </span>
+        </div>
+      )}
+
       {/* 1-Click Quick Demo Login Shortcuts */}
       <div className="p-3.5 bg-[#FAF8F5] border border-stone-200/90 rounded-2xl space-y-2.5">
         <div className="flex items-center justify-between">
@@ -109,7 +119,7 @@ export const LoginPage: React.FC = () => {
             Ready to use
           </span>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => handleQuickDemo('admin@acme.test')}
@@ -129,16 +139,6 @@ export const LoginPage: React.FC = () => {
             <UserCheck className="w-4 h-4 text-blue-600 mb-1 group-hover:scale-110 transition-transform" />
             <p className="text-xs font-bold text-stone-900 leading-tight">Manager</p>
             <p className="text-[9px] text-stone-400 font-mono mt-0.5">North Zone</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleQuickDemo('agent01@acme.test')}
-            disabled={submitting}
-            className="p-2.5 rounded-xl bg-white border border-stone-200 hover:border-[#E85D38] shadow-xs text-center transition-all hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center group"
-          >
-            <Smartphone className="w-4 h-4 text-emerald-600 mb-1 group-hover:scale-110 transition-transform" />
-            <p className="text-xs font-bold text-stone-900 leading-tight">Driver</p>
-            <p className="text-[9px] text-stone-400 font-mono mt-0.5">PWA App</p>
           </button>
         </div>
       </div>
@@ -180,9 +180,9 @@ export const LoginPage: React.FC = () => {
         </div>
         <Button
           type="submit"
-          variant="primary"
+          variant="coral"
           size="md"
-          className="w-full font-bold shadow-md shadow-orange-500/20 py-2.5 text-xs"
+          className="w-full font-bold shadow-md shadow-orange-500/20 py-2.5 text-xs !rounded-xl"
           disabled={submitting}
           leftIcon={<LogIn className="w-4 h-4" />}
         >
@@ -198,8 +198,7 @@ export const LoginPage: React.FC = () => {
         </div>
         <p className="text-stone-500 text-[10px]">
           • Admin: <code className="text-stone-800 font-bold">admin@acme.test</code><br />
-          • Manager: <code className="text-stone-800 font-bold">manager1@acme.test</code><br />
-          • Driver: <code className="text-stone-800 font-bold">agent01@acme.test</code>
+          • Manager: <code className="text-stone-800 font-bold">manager1@acme.test</code>
         </p>
       </div>
     </AuthLayout>

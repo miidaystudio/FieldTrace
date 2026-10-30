@@ -178,11 +178,11 @@ export const AnomalyCenter: React.FC = () => {
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as AnomalyType | 'all')}
-          className="bg-ops-card border border-ops-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-teal"
+          className="bg-[#161920] border border-white/[0.08] rounded-full px-4 py-2 text-xs text-white focus:outline-none focus:border-white/30"
         >
-          <option value="all">All types</option>
+          <option value="all" className="bg-[#161920] text-white">All types</option>
           {(Object.keys(ANOMALY_LABELS) as AnomalyType[]).map((type) => (
-            <option key={type} value={type}>
+            <option key={type} value={type} className="bg-[#161920] text-white">
               {ANOMALY_LABELS[type]}
             </option>
           ))}
@@ -190,22 +190,24 @@ export const AnomalyCenter: React.FC = () => {
         <select
           value={severityFilter}
           onChange={(e) => setSeverityFilter(e.target.value as AnomalySeverity | 'all')}
-          className="bg-ops-card border border-ops-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-teal"
+          className="bg-[#161920] border border-white/[0.08] rounded-full px-4 py-2 text-xs text-white focus:outline-none focus:border-white/30"
         >
-          <option value="all">All severities</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
+          <option value="all" className="bg-[#161920] text-white">All severities</option>
+          <option value="high" className="bg-[#161920] text-white">High</option>
+          <option value="medium" className="bg-[#161920] text-white">Medium</option>
+          <option value="low" className="bg-[#161920] text-white">Low</option>
         </select>
-        <span className="text-gray-500">Showing the 100 most recent anomalies in your scope.</span>
+        <span className="text-[#8E96A4]">Showing the 100 most recent anomalies in your scope.</span>
       </div>
 
-      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      <div className="mb-6">
+        <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      </div>
 
       {/* Incidents */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {visible.length === 0 ? (
-          <div className="col-span-2 p-12 text-center text-gray-500 italic bg-ops-panel border border-ops-border rounded-xl">
+          <div className="col-span-2 p-12 text-center text-[#8E96A4] italic bg-[#161920] border border-white/[0.05] rounded-3xl">
             {activeTab === 'active'
               ? 'Nothing needs attention right now.'
               : 'No anomalies match these filters.'}
@@ -217,17 +219,17 @@ export const AnomalyCenter: React.FC = () => {
             return (
               <div
                 key={item.id}
-                className={`p-5 rounded-2xl border flex flex-col justify-between transition-all ${
+                className={`p-6 rounded-3xl border flex flex-col justify-between transition-all ${
                   item.status === 'open'
-                    ? 'bg-ops-panel border-rose-500/50 shadow-lg shadow-rose-950/20'
+                    ? 'bg-[#161920] border-rose-500/50 shadow-lg shadow-rose-950/20'
                     : active
-                      ? 'bg-ops-panel border-amber-500/40'
-                      : 'bg-ops-panel/60 border-ops-border opacity-80'
+                      ? 'bg-[#161920] border-amber-500/40'
+                      : 'bg-[#161920]/80 border-white/[0.05] opacity-80'
                 }`}
               >
                 <div>
                   {/* Header row */}
-                  <div className="flex items-center justify-between pb-3 border-b border-ops-border/60 gap-2">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/[0.05] gap-2">
                     <button
                       type="button"
                       className="flex items-center gap-2.5 text-left"
@@ -237,23 +239,23 @@ export const AnomalyCenter: React.FC = () => {
                       }}
                       title="Show on the live map"
                     >
-                      <div className="w-8 h-8 rounded-full bg-ops-card border border-ops-border flex items-center justify-center text-[11px] font-bold text-brand-teal">
+                      <div className="w-8 h-8 rounded-full bg-[#1D212B] border border-white/20 flex items-center justify-center text-[11px] font-bold text-white">
                         {initials(item.agentName)}
                       </div>
                       <div>
                         <div className="font-bold text-white text-xs leading-none">{item.agentName}</div>
-                        <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                        <div className="text-[10px] text-[#8E96A4] font-mono mt-0.5">
                           Last seen {time(item.timestamp)}
                         </div>
                       </div>
                     </button>
 
                     <div className="flex items-center gap-2 flex-wrap justify-end">
-                      <span className="text-[10px] font-mono uppercase bg-ops-card text-gray-200 px-2 py-0.5 rounded border border-ops-border">
+                      <span className="text-[10px] font-mono uppercase bg-white/[0.06] text-white px-2 py-0.5 rounded-full border border-white/[0.08]">
                         {ANOMALY_LABELS[item.type]}
                       </span>
                       <span
-                        className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border ${SEVERITY_STYLES[item.severity]}`}
+                        className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border ${SEVERITY_STYLES[item.severity]}`}
                       >
                         {item.severity}
                       </span>
@@ -264,19 +266,19 @@ export const AnomalyCenter: React.FC = () => {
                   <h3 className="text-sm font-bold text-white mt-3">{item.description}</h3>
 
                   {/* Explanation */}
-                  <div className="mt-2 p-3 bg-ops-base/80 rounded-xl border border-ops-border text-xs space-y-1">
-                    <div className="text-[10px] font-mono text-brand-teal font-bold flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-brand-teal" />
+                  <div className="mt-3 p-3.5 bg-[#12151C] rounded-2xl border border-white/[0.05] text-xs space-y-1">
+                    <div className="text-[10px] font-mono text-white font-bold flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-white" />
                       <span>WHY THIS WAS FLAGGED</span>
                     </div>
-                    <p className="text-gray-300 leading-relaxed text-[11px]">{item.explanation}</p>
+                    <p className="text-[#8E96A4] leading-relaxed text-[11px]">{item.explanation}</p>
                   </div>
 
                   {/* Metrics */}
                   <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono">
                     {Object.entries(item.metricDetails).map(([key, value]) => (
-                      <div key={key} className="p-2 bg-ops-card rounded-lg border border-ops-border">
-                        <div className="text-gray-400 text-[9px] uppercase tracking-wider">{metricLabel(key)}</div>
+                      <div key={key} className="p-2.5 bg-[#1D212B] rounded-2xl border border-white/[0.05]">
+                        <div className="text-[#8E96A4] text-[9px] uppercase tracking-wider">{metricLabel(key)}</div>
                         <div className="text-white font-bold text-[11px] mt-0.5 break-words">{formatMetric(value)}</div>
                       </div>
                     ))}
@@ -310,10 +312,10 @@ export const AnomalyCenter: React.FC = () => {
 
                   {item.status === 'resolved' || item.status === 'dismissed' ? (
                     <div
-                      className={`mt-3 text-[11px] font-mono p-2 rounded-lg border ${
+                      className={`mt-3 text-[11px] font-mono p-2.5 rounded-xl border ${
                         item.status === 'resolved'
                           ? 'text-emerald-400 bg-emerald-950/30 border-emerald-500/30'
-                          : 'text-gray-300 bg-ops-card border-ops-border'
+                          : 'text-[#8E96A4] bg-[#1D212B] border-white/[0.05]'
                       }`}
                     >
                       {item.status === 'resolved' ? 'Resolved' : 'Dismissed'}
@@ -325,7 +327,7 @@ export const AnomalyCenter: React.FC = () => {
 
                 {/* Actions */}
                 {active && (
-                  <div className="mt-4 pt-3 border-t border-ops-border flex flex-wrap items-center justify-end gap-2">
+                  <div className="mt-4 pt-3 border-t border-white/[0.05] flex flex-wrap items-center justify-end gap-2">
                     {item.visitId && (
                       <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/visits')}>
                         Open visits
@@ -398,7 +400,7 @@ export const AnomalyCenter: React.FC = () => {
         <div className="space-y-4 text-xs">
           <p className="text-gray-300">{decision?.anomaly.explanation}</p>
           <div>
-            <label className="block text-gray-300 font-semibold mb-1">
+            <label className="block text-[#8E96A4] font-semibold mb-1">
               {decision?.action === 'resolved'
                 ? 'What was found / action taken (required)'
                 : 'Why is this a false positive? (optional)'}
@@ -413,7 +415,7 @@ export const AnomalyCenter: React.FC = () => {
               }
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="w-full bg-ops-card border border-ops-border rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-brand-teal"
+              className="w-full bg-[#1D212B] border border-white/[0.08] rounded-xl p-3 text-xs text-white placeholder-[#64748B] focus:outline-none focus:border-white/30"
             />
           </div>
           {actionError && (

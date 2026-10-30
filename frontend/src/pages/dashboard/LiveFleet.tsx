@@ -71,30 +71,30 @@ export const LiveFleet: React.FC = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] w-full overflow-hidden bg-ops-base">
+    <div className="flex h-full w-full overflow-hidden bg-[#0C0E12]">
       {/* Left Column: Fleet List & Dynamic Telemetry Stream */}
-      <div className="w-full md:w-96 lg:w-[420px] bg-ops-panel border-r border-ops-border flex flex-col h-full shrink-0">
+      <div className="w-full md:w-96 lg:w-[420px] bg-[#161920] border-r border-white/[0.05] flex flex-col h-full shrink-0">
         {/* Filter & Search Header */}
-        <div className="p-4 border-b border-ops-border bg-ops-base/40 space-y-3">
+        <div className="p-4 border-b border-white/[0.05] bg-[#0C0E12]/40 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Navigation className="w-4 h-4 text-brand-teal" />
+              <Navigation className="w-4 h-4 text-white" />
               <span>Live Radar Manifest</span>
             </h2>
-            <span className="text-[11px] font-mono text-gray-400">
+            <span className="text-[11px] font-mono text-[#8E96A4]">
               {filteredAgents.length} visible
             </span>
           </div>
 
           {/* Search Box */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E96A4]" />
             <input
               type="text"
               placeholder="Search agent, callsign, address..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-ops-card border border-ops-border rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-teal transition-colors"
+              className="w-full bg-[#1D212B] border border-white/[0.05] rounded-full pl-9 pr-3 py-1.5 text-xs text-white placeholder-[#8E96A4] focus:outline-none focus:border-white/20 transition-colors"
             />
           </div>
 
@@ -104,10 +104,10 @@ export const LiveFleet: React.FC = () => {
               <button
                 key={st}
                 onClick={() => setSelectedStatusFilter(st)}
-                className={`px-2.5 py-1 rounded-lg border whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1 rounded-full border whitespace-nowrap transition-all flex items-center gap-1.5 ${
                   selectedStatusFilter === st
-                    ? 'bg-brand-teal text-ops-base font-bold border-brand-teal'
-                    : 'bg-ops-card text-gray-400 border-ops-border hover:text-white'
+                    ? 'bg-white text-black font-semibold border-white shadow-xs'
+                    : 'bg-white/[0.05] text-[#8E96A4] border-white/[0.05] hover:text-white hover:bg-white/[0.08]'
                 }`}
               >
                 <span className="capitalize">{st}</span>
@@ -118,9 +118,9 @@ export const LiveFleet: React.FC = () => {
         </div>
 
         {/* Scrollable Agent Cards List */}
-        <div className="flex-1 overflow-y-auto divide-y divide-ops-border/60">
+        <div className="flex-1 overflow-y-auto divide-y divide-white/[0.05]">
           {filteredAgents.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 text-xs italic">
+            <div className="p-8 text-center text-[#8E96A4] text-xs italic">
               No field agents match the selected filter.
             </div>
           ) : (
@@ -131,10 +131,10 @@ export const LiveFleet: React.FC = () => {
                 <div
                   key={agent.id}
                   onClick={() => handleSelectAgent(agent)}
-                  className={`p-3.5 transition-all cursor-pointer flex flex-col gap-2 relative ${
+                  className={`p-4 transition-all cursor-pointer flex flex-col gap-2 relative ${
                     isSelected
-                      ? 'bg-brand-teal/10 border-l-4 border-l-brand-teal'
-                      : 'hover:bg-ops-card/80'
+                      ? 'bg-white/[0.08] border-l-4 border-l-white'
+                      : 'hover:bg-white/[0.03]'
                   }`}
                 >
                   {/* Top Row: Avatar, Name, Status Badge */}

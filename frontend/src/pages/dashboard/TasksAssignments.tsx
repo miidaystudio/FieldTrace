@@ -15,7 +15,7 @@ import {
 } from '../../api/backend';
 import { errorMessage } from '../../api/client';
 import { avatarFor } from '../../api/adapters';
-import { FormError, inputClass } from '../auth/LoginPage';
+import { DarkFormError, darkInputClass, darkSelectClass } from '../../components/common/FormInputs';
 
 const STATUS_VARIANT: Record<AssignmentStatus, 'verified' | 'moving' | 'slate' | 'flagged' | 'idle'> = {
   completed: 'verified',
@@ -135,9 +135,9 @@ export const TasksAssignments: React.FC = () => {
       header: 'Assignment',
       render: (item) => (
         <div>
-          <span className="font-mono text-[10px] text-brand-teal uppercase">#{item.id.slice(-6)}</span>
+          <span className="font-mono text-[10px] text-[#8E96A4] uppercase">#{item.id.slice(-6)}</span>
           <div className="font-bold text-white text-xs mt-0.5">{item.title ?? 'Site visit'}</div>
-          <div className="text-[10px] text-gray-400">{item.location?.name ?? '—'}</div>
+          <div className="text-[10px] text-[#8E96A4]">{item.location?.name ?? '—'}</div>
         </div>
       ),
     },
@@ -145,8 +145,8 @@ export const TasksAssignments: React.FC = () => {
       key: 'location',
       header: 'Site Address',
       render: (item) => (
-        <div className="flex items-center gap-1.5 text-xs text-gray-300">
-          <MapPin className="w-3.5 h-3.5 text-brand-teal shrink-0" />
+        <div className="flex items-center gap-1.5 text-xs text-[#8E96A4]">
+          <MapPin className="w-3.5 h-3.5 text-[#8E96A4] shrink-0" />
           <span className="truncate max-w-[200px]">{item.location?.address ?? '—'}</span>
         </div>
       ),
@@ -156,15 +156,15 @@ export const TasksAssignments: React.FC = () => {
       header: 'Assigned Field Agent',
       render: (item) => (
         <div className="flex items-center gap-2">
-          <img src={avatarFor(item.agent?.name ?? '?')} alt="" className="w-6 h-6 rounded-full border border-ops-border" />
-          <span className="text-xs text-gray-200 font-semibold">{item.agent?.name ?? '—'}</span>
+          <img src={avatarFor(item.agent?.name ?? '?')} alt="" className="w-6 h-6 rounded-full border border-white/20" />
+          <span className="text-xs text-white font-semibold">{item.agent?.name ?? '—'}</span>
         </div>
       ),
     },
     {
       key: 'window',
       header: 'Time Window',
-      render: (item) => <div className="text-xs font-mono text-gray-300">{windowLabel(item)}</div>,
+      render: (item) => <div className="text-xs font-mono text-[#8E96A4]">{windowLabel(item)}</div>,
     },
     {
       key: 'priority',
@@ -212,41 +212,58 @@ export const TasksAssignments: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-6 space-y-6 max-w-[1600px] mx-auto text-white">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <ClipboardList className="w-6 h-6 text-brand-teal" />
+          <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+            <ClipboardList className="w-6 h-6 text-white" />
             <span>Tasks & Field Work Orders</span>
           </h1>
-          <p className="text-xs text-gray-400 mt-1">
-            Site visits assigned to field agents. Agents progress their own assignments from the driver app.
+          <p className="text-xs text-[#8E96A4] mt-1">
+            Site visits assigned to field agents with automated geofence proof-of-visit tracking.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-ops-panel border border-ops-border rounded-xl px-3 py-1.5 text-xs">
-            <Calendar className="w-4 h-4 text-brand-teal" />
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Date Picker Button */}
+          <div className="flex items-center gap-2 bg-[#161920] hover:bg-[#1D212B] text-white border border-white/[0.08] rounded-full px-4 py-2 text-xs font-medium cursor-pointer transition-colors shadow-none">
+            <Calendar className="w-3.5 h-3.5 text-[#8E96A4]" />
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="bg-transparent text-white focus:outline-none font-mono"
+              className="bg-transparent text-white focus:outline-none font-mono text-xs cursor-pointer"
             />
           </div>
-          <Button variant="secondary" size="sm" leftIcon={<Route className="w-4 h-4" />} onClick={() => setPlannerOpen(true)}>
-            Optimize Route
-          </Button>
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateOpen(true)}>
-            Create Assignment
-          </Button>
+
+          {/* Secondary Button: Optimize Route */}
+          <button
+            onClick={() => setPlannerOpen(true)}
+            className="bg-[#161920] hover:bg-[#1D212B] text-white border border-white/[0.08] rounded-full px-4 py-2 text-xs font-semibold flex items-center gap-2 transition-colors shadow-none"
+          >
+            <Route className="w-3.5 h-3.5" />
+            <span>Optimize Route</span>
+          </button>
+
+          {/* Primary Action Button: + Create Assignment */}
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="bg-white hover:bg-slate-200 text-black font-semibold rounded-full px-5 py-2 text-xs flex items-center gap-2 transition-colors shadow-none"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Create Assignment</span>
+          </button>
         </div>
       </div>
 
-      <FormError message={error} />
-      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      <DarkFormError message={error} />
+
+      <div className="mb-6">
+        <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      </div>
+
       {loading ? (
-        <div className="flex items-center gap-2 text-xs text-gray-400 p-6">
-          <Loader2 className="w-4 h-4 animate-spin text-brand-teal" /> Loading assignments…
+        <div className="flex items-center gap-2 text-xs text-[#8E96A4] p-8 bg-[#161920] border border-white/[0.05] rounded-3xl">
+          <Loader2 className="w-4 h-4 animate-spin text-white" /> Loading assignments…
         </div>
       ) : (
         <DataTable
@@ -285,11 +302,11 @@ export const TasksAssignments: React.FC = () => {
           </>
         }
       >
-        <div className="space-y-3 text-xs">
-          <FormError message={createError} />
+        <div className="space-y-4 text-xs">
+          <DarkFormError message={createError} />
           <div>
-            <label className="block text-gray-300 font-semibold mb-1">Field agent</label>
-            <select className={inputClass} value={form.agentId} onChange={(e) => setForm({ ...form, agentId: e.target.value })}>
+            <label className="block text-[#8E96A4] font-semibold mb-1.5">Field agent</label>
+            <select className={darkSelectClass} value={form.agentId} onChange={(e) => setForm({ ...form, agentId: e.target.value })}>
               <option value="">Select an agent…</option>
               {[...agents]
                 .sort((a, b) => a.name.localeCompare(b.name))
@@ -301,8 +318,8 @@ export const TasksAssignments: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="block text-gray-300 font-semibold mb-1">Client location</label>
-            <select className={inputClass} value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })}>
+            <label className="block text-[#8E96A4] font-semibold mb-1.5">Client location</label>
+            <select className={darkSelectClass} value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })}>
               <option value="">Select a location…</option>
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -312,13 +329,13 @@ export const TasksAssignments: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="block text-gray-300 font-semibold mb-1">Title</label>
-            <input className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Weekly stock audit" />
+            <label className="block text-[#8E96A4] font-semibold mb-1.5">Title</label>
+            <input className={darkInputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Weekly stock audit" />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-gray-300 font-semibold mb-1">Priority</label>
-              <select className={inputClass} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as AssignmentPriority })}>
+              <label className="block text-[#8E96A4] font-semibold mb-1.5">Priority</label>
+              <select className={darkSelectClass} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as AssignmentPriority })}>
                 {(['low', 'normal', 'high', 'urgent'] as const).map((p) => (
                   <option key={p} value={p}>
                     {p}
@@ -327,12 +344,12 @@ export const TasksAssignments: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-gray-300 font-semibold mb-1">Window from</label>
-              <input type="time" className={inputClass} value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
+              <label className="block text-[#8E96A4] font-semibold mb-1.5">Window from</label>
+              <input type="time" className={darkInputClass} value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
             </div>
             <div>
-              <label className="block text-gray-300 font-semibold mb-1">Window to</label>
-              <input type="time" className={inputClass} value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
+              <label className="block text-[#8E96A4] font-semibold mb-1.5">Window to</label>
+              <input type="time" className={darkInputClass} value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
             </div>
           </div>
         </div>

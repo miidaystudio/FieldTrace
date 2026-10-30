@@ -62,5 +62,5 @@ onSessionChange((session) => {
 });
 
 export const isStaff = (role: Role | undefined) => role === 'admin' || role === 'manager';
-export const homePathFor = (role: Role) => (role === 'agent' ? '/driver' : '/dashboard');
+export const homePathFor = (role: Role) => (isStaff(role) ? '/dashboard' : '/login');
 export const userAvatar = (user: UserDto | null) => avatarFor(user?.name ?? '?');

@@ -11,7 +11,6 @@ import {
   TrendingUp,
   MapPin,
   Sparkles,
-  Smartphone,
   CheckSquare,
   Square,
   Copy,
@@ -85,13 +84,13 @@ export const LandingPage: React.FC = () => {
       ],
     },
     {
-      name: 'Phase 5 — Driver Mobile PWA',
+      name: 'Phase 5 — Intelligent Dispatch & Routing',
       time: 'Field Execution',
       items: [
-        'Driver mobile PWA viewport with shift toggle',
-        'Turn-by-turn stop manifest checklist',
-        'One-tap arrival photo proof capture & signature',
-        'Emergency SOS panic alert trigger',
+        'Automated multi-stop TSP route sequencing with time windows',
+        'Turn-by-turn stop manifest and schedule optimization',
+        'Live ETA calculation and delay risk forecasting',
+        'Webhook notifications & dispatch alert triggers',
       ],
     },
   ];
@@ -148,13 +147,8 @@ export const LandingPage: React.FC = () => {
           </nav>
 
           <div className="flex items-center gap-2.5">
-            <NavLink to="/driver">
-              <Button variant="secondary" size="sm" className="!rounded-full text-xs font-semibold shadow-xs" leftIcon={<Smartphone className="w-3.5 h-3.5 text-[#E85D38]" />}>
-                Driver App
-              </Button>
-            </NavLink>
             <NavLink to="/dashboard">
-              <Button variant="primary" size="sm" className="!rounded-full text-xs font-bold shadow-md shadow-orange-500/20" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+              <Button variant="coral" size="sm" className="!rounded-full text-xs font-bold shadow-md shadow-orange-500/20" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
                 Launch Console
               </Button>
             </NavLink>
@@ -1390,7 +1384,6 @@ export const LandingPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-6 font-mono text-[11px]">
             <NavLink to="/dashboard" className="hover:text-[#E85D38] transition-colors">Live Ops Center</NavLink>
-            <NavLink to="/driver" className="hover:text-[#E85D38] transition-colors">Driver PWA</NavLink>
             <a href="#benefits" className="hover:text-[#E85D38] transition-colors">Documentation</a>
           </div>
         </div>

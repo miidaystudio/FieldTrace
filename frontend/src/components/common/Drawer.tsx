@@ -41,32 +41,32 @@ export const Drawer: React.FC<DrawerProps> = ({
       />
       <div
         className={twMerge(
-          'fixed inset-y-0 flex max-w-full bg-ops-panel border-ops-border text-gray-100 shadow-2xl transition-all transform duration-300 ease-in-out',
+          'fixed inset-y-0 flex max-w-full bg-[#161920] border-white/[0.08] text-white shadow-2xl transition-all transform duration-300 ease-in-out',
           position === 'right' ? 'right-0 border-l animate-in slide-in-from-right' : 'left-0 border-r animate-in slide-in-from-left',
           width
         )}
       >
         <div className="flex flex-col w-full h-full">
           {/* Header */}
-          <div className="px-5 py-4 border-b border-ops-border bg-ops-base/60 flex items-center justify-between">
+          <div className="px-6 py-5 border-b border-white/[0.05] bg-[#0C0E12]/80 flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-white tracking-tight">{title}</h3>
-              {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+              {subtitle && <p className="text-xs text-[#8E96A4] mt-0.5">{subtitle}</p>}
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-ops-card transition-colors"
+              className="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-white flex items-center justify-center transition-colors"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto p-5">{children}</div>
+          <div className="flex-1 overflow-y-auto p-6">{children}</div>
 
           {/* Footer */}
           {footer && (
-            <div className="px-5 py-3 border-t border-ops-border bg-ops-base/40 flex items-center justify-end gap-2.5">
+            <div className="px-6 py-4 border-t border-white/[0.05] bg-[#0C0E12]/60 flex items-center justify-end gap-3">
               {footer}
             </div>
           )}

@@ -7,7 +7,7 @@ import { auditApi, type AuditLogDto } from '../../api/backend';
 import { errorMessage } from '../../api/client';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useFleetStore } from '../../store/useFleetStore';
-import { FormError } from '../auth/LoginPage';
+import { DarkFormError } from '../../components/common/FormInputs';
 
 const PAGE_SIZE = 50;
 
@@ -124,7 +124,7 @@ export const AuditLogs: React.FC = () => {
         </p>
       </div>
 
-      <FormError message={error} />
+      <DarkFormError message={error} />
 
       <DataTable
         data={entries}

@@ -6,7 +6,7 @@ import { Modal } from '../../components/common/Modal';
 import { Button } from '../../components/common/Button';
 import { routesApi, type AssignmentDto, type PlanRouteRequest, type RoutePlanDto } from '../../api/backend';
 import { errorMessage } from '../../api/client';
-import { FormError, inputClass } from '../auth/LoginPage';
+import { DarkFormError, darkInputClass, darkSelectClass } from '../../components/common/FormInputs';
 
 const km = (m: number) => `${(m / 1000).toFixed(1)} km`;
 const minutes = (sec: number) => (sec >= 3600 ? `${Math.floor(sec / 3600)} h ${Math.round((sec % 3600) / 60)} min` : `${Math.round(sec / 60)} min`);
@@ -99,15 +99,15 @@ export const RoutePlannerModal: React.FC<Props> = ({ isOpen, onClose, date, assi
         </>
       }
     >
-      <div className="space-y-4 text-xs">
-        <FormError message={error} />
+      <div className="space-y-4 text-xs text-white">
+        <DarkFormError message={error} />
         {openByAgent.length === 0 ? (
-          <p className="text-gray-400">No open assignments on this date.</p>
+          <p className="text-[#8E96A4]">No open assignments on this date.</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <label className="col-span-2 md:col-span-1">
-              <span className="block text-gray-300 font-semibold mb-1">Agent</span>
-              <select className={inputClass} value={agentId} onChange={(e) => setAgentId(e.target.value)}>
+              <span className="block text-[#8E96A4] font-semibold mb-1">Agent</span>
+              <select className={darkSelectClass} value={agentId} onChange={(e) => setAgentId(e.target.value)}>
                 {openByAgent.map(([id, { name, count }]) => (
                   <option key={id} value={id}>
                     {name} ({count} stops)
@@ -116,18 +116,18 @@ export const RoutePlannerModal: React.FC<Props> = ({ isOpen, onClose, date, assi
               </select>
             </label>
             <label>
-              <span className="block text-gray-300 font-semibold mb-1">Start from</span>
-              <select className={inputClass} value={start} onChange={(e) => setStart(e.target.value as 'current' | 'first_stop')}>
+              <span className="block text-[#8E96A4] font-semibold mb-1">Start from</span>
+              <select className={darkSelectClass} value={start} onChange={(e) => setStart(e.target.value as 'current' | 'first_stop')}>
                 <option value="current">Agent's GPS position</option>
                 <option value="first_stop">First stop</option>
               </select>
             </label>
             <label>
-              <span className="block text-gray-300 font-semibold mb-1">Time per stop (min)</span>
-              <input type="number" min={0} max={240} className={inputClass} value={serviceMin} onChange={(e) => setServiceMin(Number(e.target.value))} />
+              <span className="block text-[#8E96A4] font-semibold mb-1">Time per stop (min)</span>
+              <input type="number" min={0} max={240} className={darkInputClass} value={serviceMin} onChange={(e) => setServiceMin(Number(e.target.value))} />
             </label>
-            <label className="flex items-end gap-2 pb-2 text-gray-300">
-              <input type="checkbox" className="accent-teal-400 w-4 h-4" checked={returnToStart} onChange={(e) => setReturnToStart(e.target.checked)} />
+            <label className="flex items-end gap-2 pb-2 text-[#8E96A4]">
+              <input type="checkbox" className="accent-white w-4 h-4 rounded" checked={returnToStart} onChange={(e) => setReturnToStart(e.target.checked)} />
               Return to start
             </label>
           </div>
@@ -135,15 +135,14 @@ export const RoutePlannerModal: React.FC<Props> = ({ isOpen, onClose, date, assi
 
         {plan && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="h-80 rounded-xl overflow-hidden border border-ops-border">
+            <div className="h-80 rounded-2xl overflow-hidden border border-white/[0.08]">
               <MapContainer center={points[0] ?? [12.97, 77.59]} zoom={13} className="w-full h-full" scrollWheelZoom>
                 <TileLayer
-                  className="map-tiles-dark"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 />
                 <FitBounds points={points} />
-                <Polyline positions={line} pathOptions={{ color: '#2dd4bf', weight: 4, opacity: 0.8 }} />
+                <Polyline positions={line} pathOptions={{ color: '#ffffff', weight: 3, opacity: 0.9 }} />
                 <CircleMarker center={points[0]!} radius={7} pathOptions={{ color: '#fff', fillColor: '#64748b', fillOpacity: 1 }}>
                   <Tooltip>Start ({plan.start.source.replace('_', ' ')})</Tooltip>
                 </CircleMarker>
@@ -152,7 +151,7 @@ export const RoutePlannerModal: React.FC<Props> = ({ isOpen, onClose, date, assi
                     key={s.assignmentId}
                     center={[s.position.lat, s.position.lng]}
                     radius={9}
-                    pathOptions={{ color: '#fff', fillColor: s.lateSec > 0 ? '#f43f5e' : '#14b8a6', fillOpacity: 1 }}
+                    pathOptions={{ color: '#fff', fillColor: s.lateSec > 0 ? '#E11D48' : '#3B82F6', fillOpacity: 1 }}
                   >
                     <Tooltip permanent direction="top" offset={[0, -8]}>
                       {s.sequence}
@@ -164,45 +163,45 @@ export const RoutePlannerModal: React.FC<Props> = ({ isOpen, onClose, date, assi
 
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-2 font-mono">
-                <div className="p-2 rounded-lg bg-ops-card border border-ops-border">
-                  <div className="text-[9px] text-gray-400 uppercase">Distance</div>
+                <div className="p-2.5 rounded-xl bg-[#1D212B] border border-white/[0.05]">
+                  <div className="text-[9px] text-[#8E96A4] uppercase">Distance</div>
                   <div className="text-white font-bold">{km(plan.totals.distanceM)}</div>
                 </div>
-                <div className="p-2 rounded-lg bg-ops-card border border-ops-border">
-                  <div className="text-[9px] text-gray-400 uppercase">Total time</div>
+                <div className="p-2.5 rounded-xl bg-[#1D212B] border border-white/[0.05]">
+                  <div className="text-[9px] text-[#8E96A4] uppercase">Total time</div>
                   <div className="text-white font-bold">{minutes(plan.totals.durationSec)}</div>
                 </div>
-                <div className="p-2 rounded-lg bg-ops-card border border-ops-border">
-                  <div className="text-[9px] text-gray-400 uppercase">Late stops</div>
-                  <div className={`font-bold ${plan.totals.lateStops ? 'text-rose-300' : 'text-emerald-400'}`}>{plan.totals.lateStops}</div>
+                <div className="p-2.5 rounded-xl bg-[#1D212B] border border-white/[0.05]">
+                  <div className="text-[9px] text-[#8E96A4] uppercase">Late stops</div>
+                  <div className={`font-bold ${plan.totals.lateStops ? 'text-[#E11D48]' : 'text-white'}`}>{plan.totals.lateStops}</div>
                 </div>
               </div>
               {plan.baseline && saving > 60 && (
-                <p className="text-emerald-400 flex items-center gap-1">
+                <p className="text-white flex items-center gap-1 font-medium">
                   <RouteIcon className="w-3.5 h-3.5" /> Saves {minutes(saving)} and {km(Math.max(0, plan.baseline.distanceM - plan.totals.distanceM))} versus the current order.
                 </p>
               )}
               {plan.warnings.map((w) => (
-                <p key={w} className="text-amber-300 flex items-start gap-1">
+                <p key={w} className="text-[#D97706] flex items-start gap-1 font-medium">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {w}
                 </p>
               ))}
-              <ol className="space-y-1.5 max-h-52 overflow-y-auto">
+              <ol className="space-y-2 max-h-52 overflow-y-auto pr-1">
                 {plan.stops.map((s) => (
-                  <li key={s.assignmentId} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-ops-panel border border-ops-border">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-5 h-5 rounded-full bg-brand-teal text-ops-base text-[10px] font-bold flex items-center justify-center shrink-0">{s.sequence}</span>
+                  <li key={s.assignmentId} className="flex items-center justify-between gap-2 p-3 rounded-xl bg-[#1D212B] border border-white/[0.05]">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-5 h-5 rounded-full bg-white text-black text-[10px] font-bold flex items-center justify-center shrink-0">{s.sequence}</span>
                       <div className="min-w-0">
                         <div className="text-white font-semibold truncate">{s.title ?? s.locationName ?? 'Stop'}</div>
-                        <div className="text-[10px] text-gray-400 truncate">
+                        <div className="text-[10px] text-[#8E96A4] truncate">
                           {s.locationName} · {s.priority}
                           {s.window ? ` · window ${clock(s.window.start)}–${clock(s.window.end)}` : ''}
                         </div>
                       </div>
                     </div>
                     <div className="text-right font-mono shrink-0">
-                      <div className={s.lateSec > 0 ? 'text-rose-300' : 'text-white'}>ETA {clock(s.eta)}</div>
-                      <div className="text-[10px] text-gray-500">
+                      <div className={s.lateSec > 0 ? 'text-[#E11D48] font-bold' : 'text-white'}>ETA {clock(s.eta)}</div>
+                      <div className="text-[10px] text-[#8E96A4]">
                         +{km(s.legDistanceM)}
                         {s.waitSec > 60 ? ` · wait ${minutes(s.waitSec)}` : ''}
                         {s.lateSec > 0 ? ` · late ${minutes(s.lateSec)}` : ''}

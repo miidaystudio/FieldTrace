@@ -26,7 +26,7 @@ import { Modal } from '../../components/common/Modal';
 import { agentsApi, teamsApi, type TeamDto, type VehicleType } from '../../api/backend';
 import { errorMessage } from '../../api/client';
 import { VEHICLE_LABELS, fmt, timeAgo } from '../../api/adapters';
-import { FormError, inputClass } from '../auth/LoginPage';
+import { DarkFormError, darkInputClass, darkSelectClass } from '../../components/common/FormInputs';
 import { useAuthStore } from '../../store/useAuthStore';
 
 export const FieldAgents: React.FC = () => {
@@ -226,18 +226,19 @@ export const FieldAgents: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            variant="primary"
-            size="sm"
-            leftIcon={<Plus className="w-4 h-4" />}
+          <button
             onClick={() => setCreateOpen(true)}
+            className="bg-white hover:bg-slate-200 text-black font-semibold rounded-full px-5 py-2 text-xs flex items-center gap-2 transition-colors shadow-none"
           >
-            Register Field Agent
-          </Button>
+            <Plus className="w-4 h-4" />
+            <span>Register Field Agent</span>
+          </button>
         </div>
       </div>
 
-      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      <div className="mb-6">
+        <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      </div>
 
       <DataTable
         data={filteredAgents}
@@ -287,46 +288,46 @@ export const FieldAgents: React.FC = () => {
       >
         {selectedAgentDetail && (
           <div className="space-y-6 text-xs">
-            <div className="flex items-center gap-4 p-4 bg-ops-card rounded-xl border border-ops-border">
+            <div className="flex items-center gap-4 p-4 bg-[#1D212B] rounded-2xl border border-white/[0.05]">
               <img
                 src={selectedAgentDetail.avatar}
                 alt={selectedAgentDetail.name}
-                className="w-16 h-16 rounded-xl object-cover border-2 border-brand-teal"
+                className="w-16 h-16 rounded-xl object-cover border border-white/20"
               />
               <div className="space-y-1">
                 <div className="text-base font-bold text-white">{selectedAgentDetail.name}</div>
-                <div className="text-gray-400 font-mono">
+                <div className="text-[#8E96A4] font-mono">
                   {selectedAgentDetail.phone ?? '—'} · {selectedAgentDetail.email ?? '—'}
                 </div>
                 <div className="flex items-center gap-2 pt-1">
                   <Badge variant={selectedAgentDetail.status as any} size="sm">
                     {selectedAgentDetail.status}
                   </Badge>
-                  <span className="text-gray-400 font-mono">Role: {selectedAgentDetail.role}</span>
+                  <span className="text-[#8E96A4] font-mono">Role: {selectedAgentDetail.role}</span>
                 </div>
               </div>
             </div>
 
             {/* Performance Stats */}
             <div className="grid grid-cols-2 gap-2.5 font-mono">
-              <div className="p-3 bg-ops-card border border-ops-border rounded-xl">
-                <div className="text-gray-400 text-[10px]">Today's Assignments Completed</div>
+              <div className="p-3 bg-[#1D212B] border border-white/[0.05] rounded-2xl">
+                <div className="text-[#8E96A4] text-[10px]">Today's Assignments Completed</div>
                 <div className="text-xl font-bold text-emerald-400 mt-0.5">
                   {todayFor(selectedAgentDetail.id).filter((a) => a.status === 'completed').length} /{' '}
                   {todayFor(selectedAgentDetail.id).length}
                 </div>
               </div>
-              <div className="p-3 bg-ops-card border border-ops-border rounded-xl">
-                <div className="text-gray-400 text-[10px]">Connectivity</div>
-                <div className="text-xl font-bold text-brand-teal mt-0.5 capitalize">
+              <div className="p-3 bg-[#1D212B] border border-white/[0.05] rounded-2xl">
+                <div className="text-[#8E96A4] text-[10px]">Connectivity</div>
+                <div className="text-xl font-bold text-white mt-0.5 capitalize">
                   {selectedAgentDetail.connectivity}
                 </div>
               </div>
             </div>
 
             {/* Device Telemetry Specs */}
-            <div className="p-4 bg-ops-base border border-ops-border rounded-xl space-y-2 font-mono text-[11px] text-gray-300">
-              <div className="font-bold text-white uppercase text-xs border-b border-ops-border pb-1">
+            <div className="p-4 bg-[#12151C] border border-white/[0.05] rounded-2xl space-y-2 font-mono text-[11px] text-[#8E96A4]">
+              <div className="font-bold text-white uppercase text-xs border-b border-white/[0.06] pb-1">
                 Latest Device Telemetry
               </div>
               <div className="flex justify-between">
@@ -339,7 +340,7 @@ export const FieldAgents: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span>Coordinates:</span>
-                <span className="text-brand-teal">{selectedAgentDetail.hasPosition
+                <span className="text-white">{selectedAgentDetail.hasPosition
                     ? `${selectedAgentDetail.currentLat.toFixed(5)}, ${selectedAgentDetail.currentLng.toFixed(5)}`
                     : 'no fix yet'}</span>
               </div>
@@ -377,25 +378,25 @@ export const FieldAgents: React.FC = () => {
         }
       >
         <div className="space-y-3 text-xs">
-          <FormError message={createError} />
+          <DarkFormError message={createError} />
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-gray-300 font-semibold mb-1">Full name</label>
-              <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <label className="block text-[#8E96A4] font-semibold mb-1">Full name</label>
+              <input className={darkInputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
             <div>
-              <label className="block text-gray-300 font-semibold mb-1">Email (login)</label>
-              <input type="email" className={inputClass} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <label className="block text-[#8E96A4] font-semibold mb-1">Email (login)</label>
+              <input type="email" className={darkInputClass} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </div>
             <div>
-              <label className="block text-gray-300 font-semibold mb-1">Temporary password (min. 10)</label>
-              <input className={inputClass} value={form.temporaryPassword} onChange={(e) => setForm({ ...form, temporaryPassword: e.target.value })} />
+              <label className="block text-[#8E96A4] font-semibold mb-1">Temporary password (min. 10)</label>
+              <input className={darkInputClass} value={form.temporaryPassword} onChange={(e) => setForm({ ...form, temporaryPassword: e.target.value })} />
             </div>
             <div>
-              <label className="block text-gray-300 font-semibold mb-1">
+              <label className="block text-[#8E96A4] font-semibold mb-1">
                 Team {role === 'manager' ? '(required)' : '(optional)'}
               </label>
-              <select className={inputClass} value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value })}>
+              <select className={darkSelectClass} value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value })}>
                 <option value="">— none —</option>
                 {teams
                   .filter((t) => !t.isArchived)
@@ -407,16 +408,16 @@ export const FieldAgents: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-gray-300 font-semibold mb-1">Employee code</label>
-              <input className={inputClass} value={form.employeeCode} onChange={(e) => setForm({ ...form, employeeCode: e.target.value })} />
+              <label className="block text-[#8E96A4] font-semibold mb-1">Employee code</label>
+              <input className={darkInputClass} value={form.employeeCode} onChange={(e) => setForm({ ...form, employeeCode: e.target.value })} />
             </div>
             <div>
-              <label className="block text-gray-300 font-semibold mb-1">Phone</label>
-              <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <label className="block text-[#8E96A4] font-semibold mb-1">Phone</label>
+              <input className={darkInputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             </div>
             <div>
-              <label className="block text-gray-300 font-semibold mb-1">Vehicle</label>
-              <select className={inputClass} value={form.vehicle} onChange={(e) => setForm({ ...form, vehicle: e.target.value as VehicleType })}>
+              <label className="block text-[#8E96A4] font-semibold mb-1">Vehicle</label>
+              <select className={darkSelectClass} value={form.vehicle} onChange={(e) => setForm({ ...form, vehicle: e.target.value as VehicleType })}>
                 {(Object.keys(VEHICLE_LABELS) as VehicleType[]).map((v) => (
                   <option key={v} value={v}>
                     {VEHICLE_LABELS[v]}
@@ -425,8 +426,8 @@ export const FieldAgents: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-gray-300 font-semibold mb-1">Plate</label>
-              <input className={inputClass} value={form.plate} onChange={(e) => setForm({ ...form, plate: e.target.value })} />
+              <label className="block text-[#8E96A4] font-semibold mb-1">Plate</label>
+              <input className={darkInputClass} value={form.plate} onChange={(e) => setForm({ ...form, plate: e.target.value })} />
             </div>
           </div>
         </div>

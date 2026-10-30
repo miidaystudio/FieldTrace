@@ -40,23 +40,23 @@ export const NotificationBell: React.FC = () => {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="relative p-2 text-gray-400 hover:text-white rounded-lg hover:bg-ops-card transition-colors border border-transparent hover:border-ops-border"
+        className="relative w-10 h-10 rounded-full bg-[#161920] border border-white/[0.05] text-[#8E96A4] hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-all"
         title="Notifications"
       >
-        <Bell className="w-4 h-4" />
+        <Bell className="w-4 h-4 text-white" />
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#E11D48] text-white text-[9px] font-bold flex items-center justify-center">
             {unread > 99 ? '99+' : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-96 max-w-[90vw] bg-ops-panel border border-ops-borderHighlight rounded-xl shadow-2xl p-3 z-50">
-          <div className="flex items-center justify-between pb-2 border-b border-ops-border">
-            <span className="font-bold text-white text-xs flex items-center gap-1.5">
-              <Bell className="w-3.5 h-3.5 text-brand-teal" />
-              Notifications {unread > 0 && <span className="text-rose-300">({unread} unread)</span>}
+        <div className="absolute right-0 mt-2 w-96 max-w-[90vw] bg-[#161920] border border-white/[0.08] rounded-2xl shadow-2xl p-4 z-50">
+          <div className="flex items-center justify-between pb-3 border-b border-white/[0.05]">
+            <span className="font-bold text-white text-xs flex items-center gap-2">
+              <Bell className="w-3.5 h-3.5 text-white" />
+              Notifications {unread > 0 && <span className="text-[#E11D48]">({unread} unread)</span>}
             </span>
             <div className="flex items-center gap-3">
               {unread > 0 && (

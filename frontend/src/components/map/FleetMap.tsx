@@ -6,6 +6,7 @@ import { AgentMarker } from './AgentMarker';
 import { GeofenceLayer } from './GeofenceLayer';
 import { RoutePolyline } from './RoutePolyline';
 import { Layers, Maximize2, Shield, Navigation, Eye, LocateFixed } from 'lucide-react';
+import { useFleetStore } from '../../store/useFleetStore';
 
 interface FleetMapProps {
   agents?: Agent[];
@@ -94,12 +95,74 @@ export const FleetMap: React.FC<FleetMapProps> = ({
     ? selectedGeo.center
     : null;
 
-  // OpenStreetMap standard tiles (no API key; attribution required). The dark look is a CSS
-  // filter on the tile pane (see index.css .map-tiles-dark), so labels stay readable.
-  const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  // High-contrast CartoDB Dark Matter tiles for sleek operations map
+  const tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [playbackSpeed, setPlaybackSpeed] = useState<'1x' | '2x' | '5x'>('1x');
+  const handleAnomaly = useFleetStore((state) => state.handleAnomaly);
+
+  const handleInjectAnomaly = () => {
+    const targetAgent = placedAgents[0] ?? { id: 'sim-agent', name: 'Agent Marcus Chen' };
+    handleAnomaly({
+      id: `sim-anomaly-${Date.now()}`,
+      agentId: targetAgent.id,
+      agentName: targetAgent.name,
+      type: 'mock_location',
+      severity: 'high',
+      status: 'open',
+      detectedAt: new Date().toISOString(),
+      explanation: 'Simulated GNSS spoofing & mock-provider alert flagged by Sentinel engine.',
+      metadata: { mockProvider: 'com.incorporateapps.fakegps', speedKmH: 104 },
+    } as any);
+  };
 
   return (
-    <div className={`relative w-full h-full min-h-[400px] rounded-xl overflow-hidden border border-ops-border ${className}`}>
+    <div className={`relative w-full h-full min-h-[460px] rounded-3xl overflow-hidden bg-[#161920] border border-white/[0.05] ${className}`}>
+      {/* Top Header Overlay inside map */}
+      <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between pointer-events-none">
+        {/* Real-Time Fleet Positioning Radar Title Badge */}
+        <div className="pointer-events-auto bg-[#161920]/90 backdrop-blur-md border border-white/[0.08] px-4 py-2 rounded-full flex items-center gap-2.5 shadow-lg">
+          <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          <span className="text-xs font-semibold text-white tracking-wide">
+            Real-Time Fleet Positioning Radar
+          </span>
+        </div>
+
+        {/* Top-Right Pill Toggles */}
+        {interactiveLayersControl && (
+          <div className="pointer-events-auto flex items-center gap-2">
+            <button
+              onClick={() => setShowAgents(!showAgents)}
+              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all border ${
+                showAgents
+                  ? 'bg-white text-black border-white shadow-sm font-semibold'
+                  : 'bg-[#202530] text-white border-white/[0.05] hover:bg-[#282F3E]'
+              }`}
+            >
+              Agents ({placedAgents.length})
+            </button>
+            <button
+              onClick={() => setShowGeofences(!showGeofences)}
+              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all border ${
+                showGeofences
+                  ? 'bg-white text-black border-white shadow-sm font-semibold'
+                  : 'bg-[#202530] text-white border-white/[0.05] hover:bg-[#282F3E]'
+              }`}
+            >
+              Zones ({geofences.length})
+            </button>
+            <button
+              onClick={() => setTileMode(tileMode === 'dark' ? 'streets' : 'dark')}
+              className="w-8 h-8 rounded-full bg-[#202530] border border-white/[0.05] text-[#8E96A4] hover:text-white flex items-center justify-center transition-colors"
+              title="Toggle Tile Provider"
+            >
+              <Layers className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
       <MapContainer
         center={initialCenter}
         zoom={center || dataPoints.length > 0 ? zoom : 5}
@@ -109,9 +172,8 @@ export const FleetMap: React.FC<FleetMapProps> = ({
       >
         <TileLayer
           key={tileMode}
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url={tileUrl}
-          className={tileMode === 'dark' ? 'map-tiles-dark' : ''}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
+          url={tileMode === 'dark' ? tileUrl : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
           maxZoom={19}
         />
 
@@ -150,49 +212,51 @@ export const FleetMap: React.FC<FleetMapProps> = ({
           ))}
       </MapContainer>
 
-      {/* Floating Tactical Layer Toggles */}
-      {interactiveLayersControl && (
-        <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
-          <div className="bg-[#151C28]/90 backdrop-blur-md border border-ops-border rounded-xl p-1.5 shadow-2xl flex items-center gap-1 text-xs">
-            <button
-              onClick={() => setShowAgents(!showAgents)}
-              className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${
-                showAgents ? 'bg-brand-teal text-[#0B0F17] font-semibold' : 'text-gray-400 hover:text-white'
-              }`}
-              title="Toggle Live Agents"
-            >
-              <Navigation className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Agents ({placedAgents.length})</span>
-            </button>
-            <button
-              onClick={() => setShowGeofences(!showGeofences)}
-              className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${
-                showGeofences ? 'bg-emerald-500 text-[#0B0F17] font-semibold' : 'text-gray-400 hover:text-white'
-              }`}
-              title="Toggle Geofences"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Zones ({geofences.length})</span>
-            </button>
-            <button
-              onClick={() => setTileMode(tileMode === 'dark' ? 'streets' : 'dark')}
-              className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-ops-card transition-colors"
-              title="Toggle Map Style"
-            >
-              <Layers className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Floating Playback Scrubber at Bottom */}
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10">
+        <div className="bg-[#12151D]/90 backdrop-blur-md border border-white/[0.08] px-5 py-2.5 rounded-full flex items-center gap-4 shadow-2xl">
+          {/* Flat Play/Pause Icon Button */}
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="w-7 h-7 rounded-full bg-white text-black flex items-center justify-center hover:bg-slate-200 transition-colors shadow-sm"
+            title={isPlaying ? 'Pause telemetry stream' : 'Resume telemetry stream'}
+          >
+            {isPlaying ? (
+              <span className="flex items-center gap-0.5">
+                <span className="w-1 h-2.5 bg-black rounded-xs" />
+                <span className="w-1 h-2.5 bg-black rounded-xs" />
+              </span>
+            ) : (
+              <span className="border-y-[4px] border-y-transparent border-l-[7px] border-l-black ml-0.5" />
+            )}
+          </button>
 
-      {/* Live Map Watermark / Coordinates */}
-      <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
-        <div className="bg-ops-panel/85 backdrop-blur-md border border-ops-border px-2.5 py-1 rounded-md text-[10px] font-mono text-gray-400 shadow-lg flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-brand-teal animate-pulse" />
-          <span>
-            LIVE • {placedAgents.length} on map
-            {agents.length > placedAgents.length ? ` • ${agents.length - placedAgents.length} without GPS fix` : ''}
-          </span>
+          {/* Pill Speed Selectors */}
+          <div className="flex items-center bg-white/[0.05] p-0.5 rounded-full border border-white/[0.05]">
+            {(['1x', '2x', '5x'] as const).map((spd) => (
+              <button
+                key={spd}
+                onClick={() => setPlaybackSpeed(spd)}
+                className={`px-2.5 py-1 text-[11px] font-medium rounded-full transition-all ${
+                  playbackSpeed === spd
+                    ? 'bg-white text-black font-semibold shadow-xs'
+                    : 'text-[#8E96A4] hover:text-white'
+                }`}
+              >
+                {spd}
+              </button>
+            ))}
+          </div>
+
+          <div className="h-4 w-px bg-white/[0.08]" />
+
+          {/* Clean Flat Inject Anomaly Button */}
+          <button
+            onClick={handleInjectAnomaly}
+            className="bg-[#E11D48] text-white rounded-full px-4 py-1.5 text-xs font-semibold hover:bg-rose-600 transition-colors flex items-center gap-1.5 shadow-sm"
+          >
+            <span>Inject Anomaly</span>
+          </button>
         </div>
       </div>
     </div>

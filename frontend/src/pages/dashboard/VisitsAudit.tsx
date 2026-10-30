@@ -10,7 +10,7 @@ import { FleetMap } from '../../components/map/FleetMap';
 import { visitsApi, type VisitDto, type VisitStatus } from '../../api/backend';
 import { errorMessage } from '../../api/client';
 import { REASON_LABELS, avatarFor, fmt } from '../../api/adapters';
-import { FormError, inputClass } from '../auth/LoginPage';
+import { DarkFormError, darkInputClass } from '../../components/common/FormInputs';
 
 const STATUS_VARIANT: Record<VisitStatus, 'verified' | 'moving' | 'idle' | 'flagged' | 'slate' | 'offline'> = {
   verified: 'verified',
@@ -162,35 +162,37 @@ export const VisitsAudit: React.FC = () => {
   const fence = selectedVisit ? geofences.find((g) => g.id === selectedVisit.locationId) : undefined;
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-6 space-y-6 max-w-[1600px] mx-auto text-white">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+          <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+            <CheckCircle2 className="w-6 h-6 text-white" />
             <span>Proof-of-Visit Audit Ledger</span>
           </h1>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-[#8E96A4] mt-1">
             Visits detected from geofence dwell or manual check-in. A GPS fix inside a geofence is evidence,
             not proof: anything doubtful lands in "Needs Review".
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-ops-panel border border-ops-border rounded-xl px-3 py-1.5 text-xs">
-          <Calendar className="w-4 h-4 text-brand-teal" />
+        <div className="flex items-center gap-2 bg-[#161920] hover:bg-[#1D212B] text-white border border-white/[0.08] rounded-full px-4 py-2 text-xs font-medium cursor-pointer transition-colors shadow-none">
+          <Calendar className="w-3.5 h-3.5 text-[#8E96A4]" />
           <input
             type="date"
             value={date}
             max={today}
             onChange={(e) => setDate(e.target.value)}
-            className="bg-transparent text-white focus:outline-none font-mono"
+            className="bg-transparent text-white focus:outline-none font-mono text-xs cursor-pointer"
           />
         </div>
       </div>
 
-      <FormError message={error} />
-      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      <DarkFormError message={error} />
+      <div className="mb-6">
+        <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      </div>
       {loading ? (
-        <div className="flex items-center gap-2 text-xs text-gray-400 p-6">
-          <Loader2 className="w-4 h-4 animate-spin text-brand-teal" /> Loading visits…
+        <div className="flex items-center gap-2 text-xs text-[#8E96A4] p-8 bg-[#161920] border border-white/[0.05] rounded-3xl">
+          <Loader2 className="w-4 h-4 animate-spin text-white" /> Loading visits…
         </div>
       ) : (
         <DataTable
@@ -329,7 +331,7 @@ export const VisitsAudit: React.FC = () => {
             </div>
 
             {selectedVisit.review && (
-              <div className="p-3 bg-ops-card border border-ops-border rounded-xl text-gray-300">
+              <div className="p-3 bg-[#1D212B] border border-white/[0.05] rounded-xl text-white">
                 Reviewed ({selectedVisit.review.decision}) at {new Date(selectedVisit.review.at).toLocaleString()}
                 {selectedVisit.review.note ? ` — "${selectedVisit.review.note}"` : ''}
               </div>
@@ -337,8 +339,8 @@ export const VisitsAudit: React.FC = () => {
 
             {!selectedVisit.isOpen && selectedVisit.status !== 'missed' && (
               <div>
-                <label className="block text-gray-300 font-semibold mb-1">Review note (required to reject)</label>
-                <input className={inputClass} value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} placeholder="e.g. Confirmed with the client by phone" />
+                <label className="block text-[#8E96A4] font-semibold mb-1.5">Review note (required to reject)</label>
+                <input className={darkInputClass} value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} placeholder="e.g. Confirmed with the client by phone" />
               </div>
             )}
           </div>

@@ -73,12 +73,12 @@ const Bar: React.FC<{ label: string; count: number; total: number; color: string
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-gray-300 capitalize">{label.replace('_', ' ')}</span>
-        <span className="font-mono text-gray-400">
-          {count} <span className="text-gray-600">({percent}%)</span>
+        <span className="text-[#8E96A4] capitalize">{label.replace('_', ' ')}</span>
+        <span className="font-mono text-white">
+          {count} <span className="text-[#64748B]">({percent}%)</span>
         </span>
       </div>
-      <div className="h-2 bg-ops-base rounded-full overflow-hidden border border-ops-border">
+      <div className="h-2 bg-[#12151C] rounded-full overflow-hidden border border-white/[0.05]">
         <div className={`h-full ${color} transition-all duration-500`} style={{ width: `${percent}%` }} />
       </div>
     </div>
@@ -92,7 +92,7 @@ const DailyTrend: React.FC<{ days: AnalyticsDayDto[] }> = ({ days }) => {
   const dense = days.length > 31;
   return (
     <div className="space-y-3">
-      <div className="flex items-end gap-[2px] h-40 border-b border-ops-border">
+      <div className="flex items-end gap-[2px] h-40 border-b border-white/[0.06]">
         {days.map((d) => {
           const segments = [
             { n: d.visits.verified, color: 'bg-emerald-400' },
@@ -255,13 +255,17 @@ export const Analytics: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <div className="flex rounded-lg border border-ops-border overflow-hidden">
+          <div className="flex rounded-full border border-white/[0.08] bg-[#12151C] p-1 overflow-hidden">
             {RANGES.map((r) => (
               <button
                 key={r.days}
                 type="button"
                 onClick={() => setRangeDays(r.days)}
-                className={`px-3 py-2 ${rangeDays === r.days ? 'bg-brand-teal/20 text-brand-teal' : 'bg-ops-card text-gray-300 hover:bg-ops-hover'}`}
+                className={`px-3 py-1.5 rounded-full transition-all ${
+                  rangeDays === r.days
+                    ? 'bg-white text-black font-semibold shadow-xs'
+                    : 'text-[#8E96A4] hover:text-white'
+                }`}
               >
                 {r.label}
               </button>
@@ -270,11 +274,11 @@ export const Analytics: React.FC = () => {
           <select
             value={teamId}
             onChange={(e) => setTeamId(e.target.value)}
-            className="bg-ops-card border border-ops-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-teal"
+            className="bg-[#161920] border border-white/[0.08] rounded-full px-4 py-2 text-xs text-white focus:outline-none focus:border-white/30"
           >
-            <option value="">All my teams</option>
+            <option value="" className="bg-[#161920] text-white">All my teams</option>
             {teams.map((t) => (
-              <option key={t.id} value={t.id}>
+              <option key={t.id} value={t.id} className="bg-[#161920] text-white">
                 {t.name}
               </option>
             ))}
@@ -376,42 +380,42 @@ export const Analytics: React.FC = () => {
       >
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="text-gray-400 border-b border-ops-border">
+            <thead className="text-[11px] font-mono uppercase tracking-wider text-[#64748B] border-b border-white/[0.06]">
               <tr>
                 {header('name', 'Agent', 'text-left')}
-                <th className="px-3 py-2 font-semibold text-right">Days</th>
+                <th className="px-3 py-3.5 font-semibold text-right">Days</th>
                 {header('distanceKm', 'Distance')}
                 {header('shiftHours', 'Shift')}
                 {header('visits', 'Visits')}
                 {header('verificationRate', 'Verified')}
                 {header('onTimeRate', 'On time')}
-                <th className="px-3 py-2 font-semibold text-right">Missed</th>
-                <th className="px-3 py-2 font-semibold text-right">Tasks done</th>
+                <th className="px-3 py-3.5 font-semibold text-right">Missed</th>
+                <th className="px-3 py-3.5 font-semibold text-right">Tasks done</th>
                 {header('anomalies', 'Anomalies')}
               </tr>
             </thead>
             <tbody>
               {sortedCards.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-3 py-6 text-center text-gray-500 italic">
+                  <td colSpan={10} className="px-3 py-8 text-center text-[#8E96A4] italic">
                     No agent activity in this period.
                   </td>
                 </tr>
               )}
               {sortedCards.map((a) => (
-                <tr key={a.agentId} className="border-b border-ops-border/50 hover:bg-ops-hover/40">
-                  <td className="px-3 py-2 text-white font-semibold">{a.name}</td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-300">{a.daysActive}</td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-300">{fmt(a.distanceKm, ' km', 1)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-300">{fmt(a.shiftHours, ' h', 1)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-300">{a.visits.total}</td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-300">{pct(a.verificationRate)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-300">{pct(a.onTimeRate)}</td>
-                  <td className={`px-3 py-2 text-right font-mono ${a.visits.missed ? 'text-amber-300' : 'text-gray-500'}`}>{a.visits.missed}</td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-300">
+                <tr key={a.agentId} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+                  <td className="px-3 py-3 text-white font-semibold">{a.name}</td>
+                  <td className="px-3 py-3 text-right font-mono text-[#8E96A4]">{a.daysActive}</td>
+                  <td className="px-3 py-3 text-right font-mono text-white">{fmt(a.distanceKm, ' km', 1)}</td>
+                  <td className="px-3 py-3 text-right font-mono text-[#8E96A4]">{fmt(a.shiftHours, ' h', 1)}</td>
+                  <td className="px-3 py-3 text-right font-mono text-white">{a.visits.total}</td>
+                  <td className="px-3 py-3 text-right font-mono text-emerald-400">{pct(a.verificationRate)}</td>
+                  <td className="px-3 py-3 text-right font-mono text-white">{pct(a.onTimeRate)}</td>
+                  <td className={`px-3 py-3 text-right font-mono ${a.visits.missed ? 'text-amber-300' : 'text-[#64748B]'}`}>{a.visits.missed}</td>
+                  <td className="px-3 py-3 text-right font-mono text-[#8E96A4]">
                     {a.assignmentsCompleted}/{a.assignmentsTotal}
                   </td>
-                  <td className={`px-3 py-2 text-right font-mono ${a.highAnomalies ? 'text-rose-300' : a.anomalies ? 'text-amber-300' : 'text-gray-500'}`}>
+                  <td className={`px-3 py-3 text-right font-mono ${a.highAnomalies ? 'text-rose-300' : a.anomalies ? 'text-amber-300' : 'text-[#64748B]'}`}>
                     {a.anomalies}
                     {a.highAnomalies > 0 && <span className="text-[10px]"> ({a.highAnomalies} high)</span>}
                   </td>

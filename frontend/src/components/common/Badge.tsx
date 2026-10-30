@@ -18,29 +18,29 @@ export const Badge: React.FC<BadgeProps> = ({
   className,
 }) => {
   const variantStyles = {
-    verified: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
-    moving: 'bg-[#FFF2ED] text-[#E85D38] border-[#FCD4C7]',
-    idle: 'bg-amber-50 text-amber-800 border-amber-200/80',
-    stopped: 'bg-blue-50 text-blue-700 border-blue-200/80',
-    stale: 'bg-stone-100 text-stone-600 border-stone-200',
-    flagged: 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse',
-    deviated: 'bg-orange-50 text-orange-800 border-orange-200',
-    offline: 'bg-stone-100 text-stone-400 border-stone-200',
-    teal: 'bg-[#FFF2ED] text-[#E85D38] border-[#FCD4C7]',
-    slate: 'bg-stone-100 text-stone-700 border-stone-200',
+    verified: 'bg-white/[0.08] text-white border-white/[0.1]',
+    moving: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    idle: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    stopped: 'bg-slate-800/80 text-slate-300 border-white/[0.08]',
+    stale: 'bg-slate-800/60 text-slate-400 border-white/[0.05]',
+    flagged: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+    deviated: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    offline: 'bg-slate-900 text-slate-500 border-white/[0.05]',
+    teal: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    slate: 'bg-white/[0.06] text-slate-300 border-white/[0.08]',
   };
 
   const dotColors = {
-    verified: 'bg-emerald-500',
-    moving: 'bg-[#E85D38]',
+    verified: 'bg-white',
+    moving: 'bg-blue-400',
     idle: 'bg-amber-500',
-    stopped: 'bg-blue-500',
-    stale: 'bg-stone-400',
+    stopped: 'bg-slate-400',
+    stale: 'bg-slate-500',
     flagged: 'bg-rose-500',
-    deviated: 'bg-orange-500',
-    offline: 'bg-stone-400',
-    teal: 'bg-[#E85D38]',
-    slate: 'bg-stone-500',
+    deviated: 'bg-amber-500',
+    offline: 'bg-slate-600',
+    teal: 'bg-blue-400',
+    slate: 'bg-slate-400',
   };
 
   const sizeStyles = {

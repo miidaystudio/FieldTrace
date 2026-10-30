@@ -51,24 +51,24 @@ export const Modal: React.FC<ModalProps> = ({
       />
       <div
         className={twMerge(
-          'relative w-full bg-ops-panel border border-ops-borderHighlight rounded-2xl shadow-2xl flex flex-col max-h-[90vh] z-10 overflow-hidden text-gray-100 animate-in zoom-in-95 duration-150',
+          'relative w-full bg-[#161920] border border-white/[0.08] rounded-3xl shadow-2xl flex flex-col max-h-[90vh] z-10 overflow-hidden text-white animate-in zoom-in-95 duration-150',
           sizeClasses[size],
           className
         )}
       >
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-ops-border bg-ops-base/60 flex items-center justify-between">
+        <div className="px-6 py-5 border-b border-white/[0.05] bg-[#0C0E12]/80 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
               {title}
             </h3>
-            {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+            {subtitle && <p className="text-xs text-[#8E96A4] mt-0.5">{subtitle}</p>}
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-ops-card transition-colors"
+            className="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-white flex items-center justify-center transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -77,7 +77,7 @@ export const Modal: React.FC<ModalProps> = ({
 
         {/* Modal Footer */}
         {footer && (
-          <div className="px-6 py-3.5 border-t border-ops-border bg-ops-base/40 flex items-center justify-end gap-3">
+          <div className="px-6 py-4 border-t border-white/[0.05] bg-[#0C0E12]/60 flex items-center justify-end gap-3">
             {footer}
           </div>
         )}

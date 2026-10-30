@@ -5,7 +5,7 @@ import { Settings as SettingsIcon, Shield, Radio, Save, Clock, Zap } from 'lucid
 import { organizationApi, type AnomalyRules, type OrganizationSettings } from '../../api/backend';
 import { errorMessage } from '../../api/client';
 import { useAuthStore } from '../../store/useAuthStore';
-import { FormError } from '../auth/LoginPage';
+import { DarkFormError } from '../../components/common/FormInputs';
 import { MyNotificationsCard, WebhookCard } from './NotificationSettings';
 
 const input = 'w-full bg-ops-base border border-ops-border rounded-lg px-3 py-2 text-white font-mono disabled:opacity-60';
@@ -125,7 +125,7 @@ export const Settings: React.FC = () => {
         )}
       </div>
 
-      <FormError message={error} />
+      <DarkFormError message={error} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card header={<div className="flex items-center gap-2"><SettingsIcon className="w-4 h-4 text-brand-teal" /><span>Organization</span></div>}>

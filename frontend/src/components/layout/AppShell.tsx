@@ -25,34 +25,36 @@ export const AppShell: React.FC = () => {
   useLiveSocket(loadState === 'ready');
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-ops-base font-sans text-gray-100">
-      {/* Sidebar Navigation */}
-      <Sidebar />
+    <div className="flex h-screen w-screen overflow-hidden bg-[#0C0E12] font-sans text-white">
+      {/* Detached Vertical Navigation Dock on the left */}
+      <div className="py-4 pl-4 pr-1 flex flex-col items-center justify-center shrink-0 z-20">
+        <Sidebar />
+      </div>
 
       {/* Main Operations Canvas */}
       <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
         <Topbar />
 
         {loadError && (
-          <div className="mx-5 mt-3 p-3 bg-rose-950/50 border border-rose-500/50 rounded-xl text-rose-200 text-xs flex items-center justify-between gap-3">
+          <div className="mx-6 mt-3 p-4 bg-[#241419] border border-rose-500/30 rounded-2xl text-rose-200 text-xs flex items-center justify-between gap-3">
             <span className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-400" />
+              <AlertTriangle className="w-4 h-4 text-[#E11D48]" />
               Could not load fleet data: {loadError}
             </span>
             <button
               onClick={() => void loadAll(timeZone)}
-              className="flex items-center gap-1 text-white font-semibold hover:underline"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.08] hover:bg-white/[0.15] text-white font-medium"
             >
-              <RefreshCw className="w-3.5 h-3.5" /> Retry
+              <RefreshCw className="w-3 h-3" /> Retry
             </button>
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto bg-ops-base relative">
+        <main className="flex-1 overflow-y-auto bg-[#0C0E12] relative">
           {loadState === 'loading' || loadState === 'idle' ? (
-            <div className="h-full flex items-center justify-center gap-2 text-gray-400 text-xs">
-              <Loader2 className="w-4 h-4 animate-spin text-brand-teal" />
-              <span>Loading live fleet data…</span>
+            <div className="h-full flex items-center justify-center gap-2 text-[#8E96A4] text-xs">
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+              <span>Loading live telemetry…</span>
             </div>
           ) : (
             <Outlet />
